@@ -1,26 +1,21 @@
-# @optima-chat/ops-cli
+# Optima Ops CLI - 运维监控工具
 
-> **System operations and monitoring CLI for Optima infrastructure**
+> **Optima 基础设施的运维监控命令行工具**
 
-DevOps and SRE tool for monitoring Optima infrastructure, services, databases, and logs with **read-only first** design.
+一个专为 Optima 基础设施设计的 DevOps 和 SRE 工具，采用**只读优先**的安全设计理念。
 
-**Key Features:**
-- 🏥 Service health monitoring (HTTP endpoints + container status)
-- 🚀 Deployment tracking (GitHub Actions integration)
-- 🗄️ Database exploration (predefined queries, schema inspection)
-- 🖥️ Infrastructure monitoring (EC2, RDS, ALB)
-- 📝 Log analysis (CloudWatch Logs search)
-- 🔒 Safety-first design (SSH command whitelisting, read-only transactions)
+## 核心特性
 
-## Installation
+- 🏥 **服务健康监控** - HTTP 端点检查 + Docker 容器状态
+- 🚀 **部署追踪** - GitHub Actions 集成，查看部署历史
+- 🗄️ **数据库管理** - Schema 探索、健康监控、备份管理 ✅
+- 🖥️ **基础设施监控** - EC2、RDS、ALB 监控（即将推出）
+- 📝 **日志分析** - CloudWatch Logs 搜索（即将推出）
+- 🔒 **安全优先** - SSH 命令白名单、只读事务
 
-### From NPM (Future)
+## 快速开始
 
-```bash
-npm install -g @optima-chat/ops-cli
-```
-
-### From Source
+### 安装
 
 ```bash
 git clone https://github.com/Optima-Chat/optima-ops-cli.git
@@ -30,221 +25,257 @@ npm run build
 npm link
 ```
 
-## Prerequisites
+### 前置条件
 
-1. **SSH Key**: EC2 access key from AWS Parameter Store
+1. **SSH 密钥** - 从 AWS Parameter Store 获取：
    ```bash
-   aws ssm get-parameter \
-     --name /optima/ec2/ssh-private-key \
-     --with-decryption \
-     --query Parameter.Value \
-     --output text > ~/.ssh/optima-ec2-key
-
+   aws ssm get-parameter --name /optima/ec2/ssh-private-key --with-decryption --query Parameter.Value --output text > ~/.ssh/optima-ec2-key
    chmod 600 ~/.ssh/optima-ec2-key
    ```
 
-2. **AWS CLI**: Configured with appropriate permissions
+2. **AWS CLI** - 配置好权限
    ```bash
    aws configure
-   # Or use AWS_PROFILE environment variable
    ```
 
-3. **GitHub CLI** (optional, for deployment commands):
+3. **GitHub CLI**（可选，用于部署命令）：
    ```bash
-   # macOS
    brew install gh
-
-   # Authenticate
    gh auth login
    ```
 
-## Quick Start
-
-### Check Current Environment
+### 基本使用
 
 ```bash
+# 查看当前环境配置
 optima-ops env
-```
 
-Output:
-```
-当前环境配置:
-
-  环境: production
-  EC2 主机: ec2-prod.optima.shop
-  RDS 主机: optima-prod-postgres.ctg866o0ehac.ap-southeast-1.rds.amazonaws.com
-  服务列表: user-auth, mcp-host, commerce-backend, agentic-chat
-```
-
-### Service Health Check
-
-```bash
-# Check all services in production
+# 检查所有服务健康状态
 optima-ops services health
 
-# Check specific service
+# 检查特定服务
 optima-ops services health --service user-auth
 
-# Check in stage environment
+# 切换环境
 optima-ops services health --env stage
 
-# JSON output
+# 查看部署历史
+optima-ops deploy status user-auth
+
+# 数据库健康检查
+optima-ops db health
+
+# 列出所有数据库
+optima-ops db list
+
+# JSON 输出（适合脚本）
 optima-ops services health --json
 ```
 
-Output:
-```
-🏥 服务健康检查 - production 环境
+## 可用命令
 
-检查 user-auth... ✓ 健康 (120ms)
-检查 mcp-host... ✓ 健康 (150ms)
-检查 commerce-backend... ✓ 健康 (180ms)
-检查 agentic-chat... ✓ 健康 (160ms)
-
-检查容器状态...
-
-总结:
-  ✓ 所有服务健康 (4/4)
-```
-
-### Deployment Status
+### Phase 1 - Services 服务管理（5个命令）✅
 
 ```bash
-# View recent deployments for a service
-optima-ops deploy status user-auth
-
-# View deployments in stage environment
-optima-ops deploy status user-auth --env stage
-
-# Limit number of results
-optima-ops deploy status user-auth --limit 5
-```
-
-## Available Commands
-
-### Services Module (5 commands ✅)
-
-```bash
-# Health check - HTTP endpoints + container status
+# 健康检查 - HTTP 端点 + 容器状态
 optima-ops services health [--env prod|stage|dev] [--service <name>] [--json]
 
-# Container status - uptime, CPU, memory
+# 容器状态 - 运行时间、CPU、内存使用
 optima-ops services status [--env prod|stage|dev] [--service <name>] [--json]
 
-# Container logs - tail, follow, since
+# 容器日志 - 支持 tail、follow、since
 optima-ops services logs [service] [--env prod|stage|dev] [--tail 100] [--follow] [--since 10m]
 
-# Container config - network, ports, mounts, env vars
+# 容器配置 - 网络、端口、挂载、环境变量
 optima-ops services inspect [service] [--env prod|stage|dev] [--json]
 
-# Restart service - requires confirmation or --yes
+# 重启服务 - 需要确认或 --yes
 optima-ops services restart [service] [--env prod|stage|dev] [--yes]
 ```
 
-### Deploy Module (5 commands ✅)
+### Phase 1 - Deploy 部署管理（5个命令）✅
 
 ```bash
-# Deployment history - GitHub Actions runs
+# 查看部署历史 - GitHub Actions 运行记录
 optima-ops deploy status <service> [--env prod|stage|dev] [--limit 10] [--json]
 
-# Watch deployment - real-time monitoring
+# 实时监控部署 - 跟踪部署进度
 optima-ops deploy watch <service> [run-id] [--env prod|stage|dev]
 
-# List all services - deployment summary
+# 列出所有服务 - 汇总部署状态
 optima-ops deploy list [--env prod|stage|dev] [--limit 3] [--json]
 
-# Deployment logs - full GitHub Actions logs
+# 查看部署日志 - 完整 GitHub Actions 日志
 optima-ops deploy logs <service> [run-id] [--env prod|stage|dev]
 
-# Trigger deployment - requires confirmation or --yes
+# 触发部署 - 需要确认或 --yes
 optima-ops deploy trigger <service> [--env prod|stage|dev] [--mode deploy-only|build-deploy] [--yes]
 ```
 
-### Database Module (Planned)
+### Phase 2 - Database 数据库管理（19个命令）✅
+
+#### Schema 探索（7个命令）
 
 ```bash
-# Coming in Phase 2
-optima-ops db stats merchant_signups    # Predefined query: merchant signups trend
-optima-ops db stats order_revenue       # Predefined query: order revenue analysis
-optima-ops db schema optima_commerce    # View database schema
-optima-ops db tables optima_commerce    # List tables
+# 列出所有数据库
+optima-ops db list [--env prod|stage|dev] [--json]
+
+# 显示数据库详情（大小、表数量、活跃连接）
+optima-ops db info [database] [--env prod|stage|dev] [--json]
+
+# 列出数据库中的所有表
+optima-ops db tables [--database <name>] [--env prod|stage|dev] [--json]
+
+# 显示表结构（列、索引、外键）
+optima-ops db describe [table] [--database <name>] [--env prod|stage|dev] [--json]
+
+# 显示表的外键关系
+optima-ops db relationships [table] [--database <name>] [--env prod|stage|dev] [--json]
+
+# 导出数据库 schema（不含数据）
+optima-ops db schema-export [--database <name>] [--env prod|stage|dev] [--output schema.sql]
+
+# 生成数据库关系图（JSON 或 Mermaid ER 图）
+optima-ops db schema-graph [--database <name>] [--env prod|stage|dev] [--format json|mermaid]
 ```
 
-### Infrastructure Module (Planned)
+#### Health Monitoring 健康监控（8个命令）
 
 ```bash
-# Coming in Phase 3
-optima-ops infra ec2                    # EC2 instance metrics
-optima-ops infra rds                    # RDS performance metrics
-optima-ops infra alb                    # ALB health check status
+# 数据库综合健康检查
+optima-ops db health [--database <name>] [--env prod|stage|dev] [--json]
+
+# 显示数据库连接详情
+optima-ops db connections [--database <name>] [--env prod|stage|dev] [--json]
+
+# 显示缓存命中率（整体或按表）
+optima-ops db cache-hit [--database <name>] [--env prod|stage|dev] [--by-table] [--json]
+
+# 显示数据库锁和阻塞情况
+optima-ops db locks [--database <name>] [--env prod|stage|dev] [--show-blocking] [--json]
+
+# 显示正在运行的慢查询
+optima-ops db slow-queries [--database <name>] [--env prod|stage|dev] [--threshold 5] [--json]
+
+# 显示表膨胀情况（死元组）
+optima-ops db bloat [--database <name>] [--env prod|stage|dev] [--threshold 20] [--json]
+
+# 显示索引使用统计
+optima-ops db index-usage [--database <name>] [--env prod|stage|dev] [--show-unused] [--json]
 ```
 
-### Logs Module (Planned)
+#### 基础操作（2个命令）
 
 ```bash
-# Coming in Phase 4
-optima-ops logs search <pattern>        # Search CloudWatch Logs
-optima-ops logs errors --last 1h        # Recent error logs
-optima-ops logs tail <service>          # Tail service logs
+# 执行只读 SQL 查询（强制 READ ONLY 事务）
+optima-ops db query [sql] [--database <name>] [--env prod|stage|dev] [--json]
+
+# 安全采样表数据（使用 TABLESAMPLE）
+optima-ops db sample [table] [--database <name>] [--env prod|stage|dev] [--limit 100] [--json]
 ```
 
-### Config Module (Planned)
+#### Backup & Dump 备份管理（3个命令）
 
 ```bash
-# Coming in Phase 5
-optima-ops config show <service>        # View service environment variables
-optima-ops config compare prod stage    # Compare configurations
+# 备份数据库（pg_dump 最佳实践：目录格式、并行、压缩）
+optima-ops db dump [database] [--env prod|stage|dev] [--output /opt/backups] [--parallel 4] [--compress zstd:9] [--yes]
+
+# 列出 EC2 上的数据库备份
+optima-ops db backups-list [--env prod|stage|dev] [--limit 20] [--json]
+
+# 显示备份详情（大小、文件数、创建时间）
+optima-ops db backups-info <backup-path> [--env prod|stage|dev] [--json]
 ```
 
-## Environment Management
-
-### Environment Variables
+### 工具命令
 
 ```bash
-# Set environment
-export OPTIMA_OPS_ENV=production  # or stage, development
+# 显示环境配置
+optima-ops env
 
-# Custom SSH key path
-export OPTIMA_SSH_KEY=~/.ssh/custom-key
-
-# AWS configuration
-export AWS_REGION=ap-southeast-1
-export AWS_PROFILE=optima
-
-# Output format
-export OPTIMA_OUTPUT=json
-
-# Non-interactive mode (for CI/CD)
-export NON_INTERACTIVE=1
-export CI=true
+# 显示版本信息
+optima-ops version
 ```
 
-### Supported Environments
+### 即将推出的模块
 
-| Environment | EC2 Host | Services |
-|-------------|----------|----------|
+- **Infrastructure 模块** - EC2、RDS、ALB 指标
+- **Logs 模块** - CloudWatch 日志搜索
+- **Config 模块** - 环境变量管理
+
+## 环境管理
+
+### 支持的环境
+
+| 环境 | EC2 主机 | 服务列表 |
+|------|---------|---------|
 | **production** | ec2-prod.optima.shop | user-auth, mcp-host, commerce-backend, agentic-chat |
 | **stage** | ec2-stage.optima.shop | user-auth, mcp-host, commerce-backend, agentic-chat |
 | **development** | ec2-dev.optima.shop | user-auth, mcp-host, commerce-backend, agentic-chat |
 
-## Output Formats
-
-### Human-Readable (Default)
-
-Colored tables and formatted text for terminal use.
-
-### JSON Format
+### 环境变量
 
 ```bash
-# Use --json flag
-optima-ops services health --json
+# 设置环境
+export OPTIMA_OPS_ENV=production  # 或 stage, development
 
-# Or environment variable
+# 自定义 SSH 密钥路径
+export OPTIMA_SSH_KEY=~/.ssh/custom-key
+
+# AWS 配置
+export AWS_REGION=ap-southeast-1
+export AWS_PROFILE=optima
+
+# JSON 输出
 export OPTIMA_OUTPUT=json
-optima-ops services health
+
+# 非交互模式（CI/CD）
+export NON_INTERACTIVE=1
 ```
 
-Example JSON output:
+## 安全特性
+
+### 只读优先设计
+
+- **93% 只读命令** - 纯观察，无副作用
+- **7% 低风险命令** - 重启、触发部署（需 `--yes` 确认）
+- **0% 危险命令** - 删除、清理、任意 SQL（已阻止）
+
+### SSH 命令白名单
+
+**允许（只读）**：
+- `docker ps`, `docker logs`, `docker inspect`
+- `cat`, `grep`, `tail`, `ls`, `find`
+- `df -h`, `systemctl status`
+
+**低风险（需确认）**：
+- `docker-compose restart`
+- `systemctl restart`
+
+**禁止（危险）**：
+- `rm`, `docker rm`, `kill`, `shutdown`
+- Shell 操作符：`>`, `|`, `;`, `&&`
+
+### 敏感数据脱敏
+
+自动混淆：
+- 密码 (`password=***`)
+- Token (`token=***`)
+- 连接字符串 (`user:***@host`)
+- AWS 密钥 (`AKIA***`)
+
+## 输出格式
+
+### 人类可读（默认）
+
+彩色表格和格式化文本
+
+### JSON 格式
+
+```bash
+optima-ops services health --json
+```
+
 ```json
 {
   "success": true,
@@ -253,182 +284,80 @@ Example JSON output:
     "services": [
       {
         "service": "user-auth",
-        "url": "https://auth.optima.shop",
         "status": "healthy",
-        "http_status": 200,
-        "response_time": "120ms",
-        "container_status": "Up 3 days"
+        "response_time": "120ms"
       }
-    ],
-    "summary": {
-      "total": 4,
-      "healthy": 4,
-      "unhealthy": 0,
-      "error": 0
-    }
+    ]
   }
 }
 ```
 
-## Safety Features
-
-### Read-Only First Design
-
-- **93% read-only commands**: Pure observation, no side effects
-- **7% low-risk commands**: Restart, deploy trigger (require `--yes` confirmation)
-- **0% dangerous commands**: Delete, cleanup, arbitrary SQL (blocked)
-
-### SSH Command Whitelisting
-
-All SSH commands are validated against a whitelist:
-
-**Allowed (Read-Only)**:
-- `docker ps`, `docker logs`, `docker inspect`, `docker stats`
-- `cat`, `grep`, `tail`, `head`, `ls`, `find`
-- `df -h`, `free -h`, `uptime`, `systemctl status`
-
-**Low-Risk (Require Confirmation)**:
-- `docker-compose restart`
-- `docker restart`
-- `systemctl restart`
-
-**Blocked (Dangerous)**:
-- `rm`, `docker rm`, `docker system prune`
-- `kill`, `shutdown`, `reboot`
-- Shell operators: `>`, `>>`, `|`, `;`, `&&`, `||`
-
-### Database Safety
-
-- **Forced READ ONLY transactions**: All database queries run in `BEGIN TRANSACTION READ ONLY` mode
-- **Predefined queries**: Use parameterized templates to avoid SQL injection
-- **No manual SQL**: Manual queries not allowed to prevent field/table name errors
-
-### Sensitive Data Masking
-
-Automatic obfuscation of:
-- Passwords (`password=***`)
-- Tokens (`token=***`)
-- Connection strings (`user:***@host`)
-- AWS keys (`AKIA***`)
-
-## Interactive Mode
-
-### Auto-Prompts
-
-When parameters are missing, the CLI will prompt you interactively (unless in CI/CD):
+## 开发
 
 ```bash
-$ optima-ops services logs
-
-? 选择服务: (Use arrow keys)
-❯ user-auth
-  mcp-host
-  commerce-backend
-  agentic-chat
-```
-
-### Confirmation for Dangerous Actions
-
-```bash
-$ optima-ops services restart user-auth
-
-⚠️  即将执行危险操作:
-   操作: restart
-   目标: user-auth
-   环境: production
-
-? 确定要继续吗？ (y/N)
-```
-
-### Non-Interactive Mode
-
-Disable prompts for CI/CD:
-
-```bash
-export NON_INTERACTIVE=1
-# or
-export CI=true
-
-optima-ops services health --json
-```
-
-## Development
-
-```bash
-# Install dependencies
+# 安装依赖
 npm install
 
-# Build TypeScript
+# 构建
 npm run build
 
-# Development mode (watch)
+# 开发模式
 npm run dev -- services health
 
-# Lint
+# 代码检查
 npm run lint
-
-# Format
-npm run format
 ```
 
-## Roadmap
+## 实现路线
 
-- [x] **Phase 1** (Current): Services + Deploy modules
-  - [x] Core utilities (config, output, error, prompt)
-  - [x] SSH client with whitelisting
-  - [x] AWS SDK clients
-  - [x] GitHub CLI wrapper
-  - [x] `services health`
-  - [x] `deploy status`
-  - [ ] Additional services commands
-  - [ ] Additional deploy commands
+- [x] **Phase 1 完成** (2025-01-13)：Services + Deploy 模块
+  - [x] 核心工具类（config, output, error, prompt, ssh）
+  - [x] SSH 客户端（命令白名单）
+  - [x] AWS SDK 客户端（SSM, EC2, RDS, CloudWatch Logs）
+  - [x] GitHub CLI 包装器
+  - [x] Services 模块 5 个命令（health, status, logs, inspect, restart）
+  - [x] Deploy 模块 5 个命令（status, watch, list, logs, trigger）
+  - [x] 工具命令（env, version）
 
-- [ ] **Phase 2**: Database module (exploration, queries, schema)
-- [ ] **Phase 3**: Infrastructure module (EC2, RDS, ALB metrics)
-- [ ] **Phase 4**: Logs module (CloudWatch search, tail, errors)
-- [ ] **Phase 5**: Config module (env vars, Parameter Store)
+- [x] **Phase 2 完成** (2025-01-13)：Database 模块
+  - [x] PostgreSQL 客户端（连接管理、只读事务强制）
+  - [x] 密码管理（AWS Parameter Store 集成）
+  - [x] 健康监控查询模板（45+ 预定义查询）
+  - [x] Schema 探索 7 个命令（list, info, tables, describe, relationships, schema-export, schema-graph）
+  - [x] Health Monitoring 8 个命令（health, connections, cache-hit, locks, slow-queries, bloat, index-usage）
+  - [x] 基础操作 2 个命令（query, sample）
+  - [x] Backup & Dump 3 个命令（dump, backups-list, backups-info）
 
-## Troubleshooting
+- [ ] **Phase 3**: Infrastructure 模块（EC2/RDS/ALB 监控）
+- [ ] **Phase 4**: Logs 模块（CloudWatch 搜索）
+- [ ] **Phase 5**: Config 模块（环境变量管理）
 
-**SSH connection failed**:
+## 常见问题
+
+**SSH 连接失败**：
 ```bash
-# Check key exists
 ls -la ~/.ssh/optima-ec2-key
-
-# Fix permissions
 chmod 600 ~/.ssh/optima-ec2-key
-
-# Test connection
 ssh -i ~/.ssh/optima-ec2-key ec2-user@ec2-prod.optima.shop
 ```
 
-**AWS permissions error**:
+**AWS 权限错误**：
 ```bash
-# Verify identity
 aws sts get-caller-identity
-
-# Set correct profile
 export AWS_PROFILE=optima
 ```
 
-**GitHub CLI not found**:
+**GitHub CLI 未安装**：
 ```bash
-# Install (macOS)
-brew install gh
-
-# Install (Linux)
-# See https://github.com/cli/cli/blob/trunk/docs/install_linux.md
-
-# Authenticate
+brew install gh  # macOS
 gh auth login
 ```
 
-## Links
+## 相关文档
 
-- [CLAUDE.md](./CLAUDE.md) - Developer documentation
-- [Design Document](../../notes-private/projects/Optima%20Ops%20CLI%20设计方案.md)
-- [GitHub](https://github.com/Optima-Chat/optima-ops-cli)
-- [NPM](https://www.npmjs.com/package/@optima-chat/ops-cli)
+- [CLAUDE.md](./CLAUDE.md) - 开发者文档（英文）
+- [设计文档](../../notes-private/projects/Optima%20Ops%20CLI%20设计方案.md)
+- [主项目 README](../../CLAUDE.md)
 
 ## License
 
