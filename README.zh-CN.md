@@ -66,33 +66,55 @@ optima-ops deploy status user-auth
 optima-ops services health --json
 ```
 
-## 可用命令
+## 可用命令（Phase 1 完成 ✅）
 
-### Services 服务管理
+### Services 服务管理（5个命令）
 
 ```bash
-# 健康检查
+# 健康检查 - HTTP 端点 + 容器状态
 optima-ops services health [--env prod|stage|dev] [--service <name>] [--json]
+
+# 容器状态 - 运行时间、CPU、内存使用
+optima-ops services status [--env prod|stage|dev] [--service <name>] [--json]
+
+# 容器日志 - 支持 tail、follow、since
+optima-ops services logs [service] [--env prod|stage|dev] [--tail 100] [--follow] [--since 10m]
+
+# 容器配置 - 网络、端口、挂载、环境变量
+optima-ops services inspect [service] [--env prod|stage|dev] [--json]
+
+# 重启服务 - 需要确认或 --yes
+optima-ops services restart [service] [--env prod|stage|dev] [--yes]
 ```
 
-**即将推出：**
-- `services status` - 查看容器状态
-- `services logs <service>` - 查看容器日志
-- `services inspect <service>` - 查看容器配置
-- `services restart <service>` - 重启服务（需确认）
-
-### Deploy 部署管理
+### Deploy 部署管理（5个命令）
 
 ```bash
-# 查看部署历史
-optima-ops deploy status <service> [--env prod|stage|dev] [--limit 10]
+# 查看部署历史 - GitHub Actions 运行记录
+optima-ops deploy status <service> [--env prod|stage|dev] [--limit 10] [--json]
+
+# 实时监控部署 - 跟踪部署进度
+optima-ops deploy watch <service> [run-id] [--env prod|stage|dev]
+
+# 列出所有服务 - 汇总部署状态
+optima-ops deploy list [--env prod|stage|dev] [--limit 3] [--json]
+
+# 查看部署日志 - 完整 GitHub Actions 日志
+optima-ops deploy logs <service> [run-id] [--env prod|stage|dev]
+
+# 触发部署 - 需要确认或 --yes
+optima-ops deploy trigger <service> [--env prod|stage|dev] [--mode deploy-only|build-deploy] [--yes]
 ```
 
-**即将推出：**
-- `deploy watch` - 实时监控部署
-- `deploy list` - 列出所有服务部署状态
-- `deploy logs` - 查看部署日志
-- `deploy trigger` - 触发部署（需确认）
+### 工具命令
+
+```bash
+# 显示环境配置
+optima-ops env
+
+# 显示版本信息
+optima-ops version
+```
 
 ### 即将推出的模块
 
@@ -208,20 +230,19 @@ npm run lint
 
 ## 实现路线
 
-- [x] **Phase 1**（当前）：Services + Deploy 模块
-  - [x] 核心工具类
+- [x] **Phase 1 完成** (2025-01-13)：Services + Deploy 模块
+  - [x] 核心工具类（config, output, error, prompt, ssh）
   - [x] SSH 客户端（命令白名单）
-  - [x] AWS SDK 客户端
+  - [x] AWS SDK 客户端（SSM, EC2, RDS, CloudWatch Logs）
   - [x] GitHub CLI 包装器
-  - [x] `services health`
-  - [x] `deploy status`
-  - [ ] 其他 services 命令
-  - [ ] 其他 deploy 命令
+  - [x] Services 模块 5 个命令（health, status, logs, inspect, restart）
+  - [x] Deploy 模块 5 个命令（status, watch, list, logs, trigger）
+  - [x] 工具命令（env, version）
 
-- [ ] **Phase 2**: Database 模块
-- [ ] **Phase 3**: Infrastructure 模块
-- [ ] **Phase 4**: Logs 模块
-- [ ] **Phase 5**: Config 模块
+- [ ] **Phase 2**: Database 模块（预定义查询、Schema 探索）
+- [ ] **Phase 3**: Infrastructure 模块（EC2/RDS/ALB 监控）
+- [ ] **Phase 4**: Logs 模块（CloudWatch 搜索）
+- [ ] **Phase 5**: Config 模块（环境变量管理）
 
 ## 常见问题
 

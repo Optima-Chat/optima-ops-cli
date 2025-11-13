@@ -122,31 +122,43 @@ optima-ops deploy status user-auth --limit 5
 
 ## Available Commands
 
-### Services Module
+### Services Module (5 commands ✅)
 
 ```bash
+# Health check - HTTP endpoints + container status
 optima-ops services health [--env prod|stage|dev] [--service <name>] [--json]
-  # Check service health status (HTTP /health + container status)
+
+# Container status - uptime, CPU, memory
+optima-ops services status [--env prod|stage|dev] [--service <name>] [--json]
+
+# Container logs - tail, follow, since
+optima-ops services logs [service] [--env prod|stage|dev] [--tail 100] [--follow] [--since 10m]
+
+# Container config - network, ports, mounts, env vars
+optima-ops services inspect [service] [--env prod|stage|dev] [--json]
+
+# Restart service - requires confirmation or --yes
+optima-ops services restart [service] [--env prod|stage|dev] [--yes]
 ```
 
-**Coming Soon:**
-- `services status` - View container status
-- `services logs <service>` - View container logs
-- `services inspect <service>` - View container configuration
-- `services restart <service>` - Restart service container (with confirmation)
-
-### Deploy Module
+### Deploy Module (5 commands ✅)
 
 ```bash
+# Deployment history - GitHub Actions runs
 optima-ops deploy status <service> [--env prod|stage|dev] [--limit 10] [--json]
-  # View GitHub Actions deployment history
-```
 
-**Coming Soon:**
-- `deploy watch <service>` - Watch deployment in real-time
-- `deploy list` - List all services' deployment status
-- `deploy logs <service> <run-id>` - View deployment logs
-- `deploy trigger <service>` - Trigger deployment (with confirmation)
+# Watch deployment - real-time monitoring
+optima-ops deploy watch <service> [run-id] [--env prod|stage|dev]
+
+# List all services - deployment summary
+optima-ops deploy list [--env prod|stage|dev] [--limit 3] [--json]
+
+# Deployment logs - full GitHub Actions logs
+optima-ops deploy logs <service> [run-id] [--env prod|stage|dev]
+
+# Trigger deployment - requires confirmation or --yes
+optima-ops deploy trigger <service> [--env prod|stage|dev] [--mode deploy-only|build-deploy] [--yes]
+```
 
 ### Database Module (Planned)
 
