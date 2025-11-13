@@ -68,6 +68,16 @@ export class ValidationError extends OpsCLIError {
   }
 }
 
+/**
+ * 数据库错误
+ */
+export class DatabaseError extends OpsCLIError {
+  constructor(message: string, details?: any) {
+    super(message, 'DATABASE_ERROR', details);
+    this.name = 'DatabaseError';
+  }
+}
+
 // ============== 错误处理器 ==============
 
 /**

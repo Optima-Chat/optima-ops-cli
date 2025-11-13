@@ -49,12 +49,14 @@
     "conf": "^12.0.0",
     "inquirer": "^9.2.0",
     "ora": "^8.0.0",
+    "pg": "^8.16.3",
     "ssh2": "^1.15.0"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.15.6",
     "@types/ssh2": "^1.15.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
