@@ -100,6 +100,13 @@ export function handleError(error: any): void {
     // 人类可读格式
     console.error(chalk.red(`\n✗ 错误: ${error.message || String(error)}\n`));
 
+    // 开发模式显示堆栈
+    if (process.env.DEBUG === '1' || process.env.NODE_ENV === 'development') {
+      console.error(chalk.gray('堆栈:'));
+      console.error(chalk.gray(error.stack));
+      console.log();
+    }
+
     // 如果有详细信息，显示它
     if (error.details) {
       console.error(chalk.gray('详细信息:'));

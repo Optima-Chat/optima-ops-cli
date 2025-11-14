@@ -55,15 +55,21 @@ export function createTable(options?: {
   colWidths?: number[];
   style?: any;
 }): Table.Table {
-  return new Table({
+  const tableConfig: any = {
     head: options?.head || [],
-    colWidths: options?.colWidths,
     style: {
       head: ['cyan'],
       border: ['gray'],
       ...options?.style,
     },
-  });
+  };
+
+  // 只有当 colWidths 存在时才设置
+  if (options?.colWidths) {
+    tableConfig.colWidths = options.colWidths;
+  }
+
+  return new Table(tableConfig);
 }
 
 /**
@@ -184,14 +190,22 @@ export function formatPercentage(value: number, total: number): string {
  * 格式化状态（带颜色）
  */
 export function formatStatus(status: string): string {
+  if (!status) return 'N/A';
+
   const statusMap: Record<string, any> = {
     success: chalk.green('✓ 成功'),
+    failure: chalk.red('✗ 失败'),
     failed: chalk.red('✗ 失败'),
+    completed: chalk.blue('● 完成'),
+    in_progress: chalk.yellow('● 运行中'),
+    queued: chalk.blue('⧗ 队列中'),
     running: chalk.yellow('● 运行中'),
     stopped: chalk.gray('○ 停止'),
     pending: chalk.blue('⧗ 等待中'),
     healthy: chalk.green('✓ 健康'),
     unhealthy: chalk.red('✗ 不健康'),
+    cancelled: chalk.gray('○ 已取消'),
+    skipped: chalk.gray('○ 跳过'),
   };
 
   return statusMap[status.toLowerCase()] || status;

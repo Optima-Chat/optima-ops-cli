@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getCurrentEnvironment, getCurrentEnvConfig, Environment } from '../../utils/config.js';
-import { getWorkflowRuns, getServiceRepo } from '../../utils/github.js';
+import { getWorkflowRuns, getServiceRepo, getDeployWorkflow } from '../../utils/github.js';
 import {
   isJsonOutput,
   outputSuccess,
@@ -37,16 +37,24 @@ export const listCommand = new Command('list')
 
         try {
           const repo = getServiceRepo(service);
+          const workflow = await getDeployWorkflow(repo);
+
+          if (!workflow) {
+            throw new Error('未找到 workflow');
+          }
+
           const runs = await getWorkflowRuns(repo, {
-            workflow: 'deploy.yml',
+            workflow,
             branch: 'main',
             limit,
           });
 
           results[service] = {
             repo,
+            workflow,
             runs: runs.map(run => ({
               id: run.id,
+              number: run.number,
               status: run.status,
               conclusion: run.conclusion,
               branch: run.branch,

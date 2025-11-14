@@ -103,7 +103,7 @@ export async function getWorkflowRuns(
     workflowName: run.workflowName,
     event: run.event,
     branch: run.headBranch,
-    commit: run.headSha.substring(0, 7),
+    commit: run.headSha ? run.headSha.substring(0, 7) : 'unknown',
     startedAt: run.startedAt,
     updatedAt: run.updatedAt,
     url: run.url,
@@ -253,4 +253,50 @@ export function getServiceRepo(service: string): string {
   };
 
   return repoMap[service] || `Optima-Chat/${service}`;
+}
+
+/**
+ * 自动检测仓库的部署 workflow 文件名
+ */
+export async function getDeployWorkflow(repo: string): Promise<string | null> {
+  try {
+    const output = await executeGH(
+      `api repos/${repo}/actions/workflows --jq '.workflows[] | select(.path | contains("deploy")) | .path'`
+    );
+
+    if (!output || output.trim() === '') {
+      return null;
+    }
+
+    const workflows = output.split('\n').filter(w => w.trim() && !w.includes('WARNING'));
+
+    if (workflows.length === 0) {
+      return null;
+    }
+
+    // 优先级排序
+    const priority = [
+      'deploy-aws-prod.yml',
+      'deploy-unified.yml',
+      'deploy.yml',
+    ];
+
+    for (const preferred of priority) {
+      const match = workflows.find(w => w.endsWith(preferred));
+      if (match) {
+        const parts = match.split('/');
+        const filename = parts[parts.length - 1];
+        return filename || null;
+      }
+    }
+
+    if (workflows[0]) {
+      const parts = workflows[0].split('/');
+      return parts[parts.length - 1] || null;
+    }
+
+    return null;
+  } catch (error) {
+    return 'deploy-aws-prod.yml';
+  }
 }

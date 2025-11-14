@@ -1,6 +1,7 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { getCurrentEnvironment, Environment } from '../../utils/config.js';
-import { getWorkflowRuns, getServiceRepo } from '../../utils/github.js';
+import { getWorkflowRuns, getServiceRepo, getDeployWorkflow } from '../../utils/github.js';
 import {
   isJsonOutput,
   outputSuccess,
@@ -10,6 +11,7 @@ import {
   formatStatus,
 } from '../../utils/output.js';
 import { handleError } from '../../utils/error.js';
+import { CommandTimer, isTimingEnabled } from '../../utils/timer.js';
 
 export const statusCommand = new Command('status')
   .description('查看部署状态')
@@ -19,6 +21,7 @@ export const statusCommand = new Command('status')
   .option('--json', 'JSON 格式输出')
   .action(async (service, options) => {
     try {
+      const timer = new CommandTimer();
       const env: Environment = options.env || getCurrentEnvironment();
       const limit = parseInt(options.limit);
       const repo = getServiceRepo(service);
@@ -27,20 +30,31 @@ export const statusCommand = new Command('status')
         printTitle(`📋 部署历史 - ${service} (${env})`);
       }
 
+      // 自动检测 workflow 文件名
+      const workflow = await getDeployWorkflow(repo);
+      timer.step('检测 workflow');
+
+      if (!workflow) {
+        throw new Error(`未找到仓库 ${repo} 的部署 workflow 文件`);
+      }
+
       // 获取 workflow runs
       const runs = await getWorkflowRuns(repo, {
-        workflow: 'deploy.yml',
+        workflow,
         branch: 'main',
         limit,
       });
+      timer.step('获取部署历史');
 
       if (isJsonOutput()) {
-        outputSuccess({
+        const output = {
           service,
           environment: env,
           repo,
+          workflow,
           runs: runs.map(run => ({
             id: run.id,
+            number: run.number,
             status: run.status,
             conclusion: run.conclusion,
             branch: run.branch,
@@ -49,29 +63,39 @@ export const statusCommand = new Command('status')
             updated_at: run.updatedAt,
             url: run.url,
           })),
-        });
+          _timing: isTimingEnabled() ? timer.getTimingData() : undefined,
+        };
+        outputSuccess(output);
       } else {
-        const table = createTable({
-          head: ['ID', '状态', '分支', '提交', '时间', 'URL'],
-        });
+        if (runs && runs.length > 0) {
+          const table = createTable({
+            head: ['#', '状态', '分支', '提交', '时间'],
+          });
 
-        for (const run of runs) {
-          const status = run.conclusion
-            ? formatStatus(run.conclusion)
-            : formatStatus(run.status);
+          for (const run of runs) {
+            const displayStatus = run.conclusion
+              ? formatStatus(run.conclusion || 'unknown')
+              : formatStatus(run.status || 'unknown');
 
-          table.push([
-            run.id.toString(),
-            status,
-            run.branch,
-            run.commit,
-            formatRelativeTime(run.startedAt),
-            run.url,
-          ]);
+            table.push([
+              run.number?.toString() || 'N/A',
+              displayStatus,
+              run.branch || 'N/A',
+              run.commit || 'N/A',
+              run.startedAt ? formatRelativeTime(run.startedAt) : 'N/A',
+            ]);
+          }
+
+          console.log(table.toString());
+          console.log();
+          console.log(chalk.gray(`找到 ${runs.length} 条部署记录`));
+        } else {
+          console.log(chalk.yellow('未找到部署记录'));
         }
 
-        console.log(table.toString());
-        console.log();
+        if (isTimingEnabled()) {
+          timer.printSummary();
+        }
       }
     } catch (error) {
       handleError(error);
