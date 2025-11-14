@@ -7,7 +7,8 @@ const execAsync = promisify(exec);
 // ============== GitHub CLI 包装器 ==============
 
 export interface GitHubRun {
-  id: number;
+  id: number;  // Using databaseId from GitHub API
+  number: number;  // Run number (sequential)
   status: 'queued' | 'in_progress' | 'completed';
   conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped';
   workflowName: string;
@@ -77,7 +78,7 @@ export async function getWorkflowRuns(
     limit?: number;
   }
 ): Promise<GitHubRun[]> {
-  let command = `run list --repo ${repo} --json id,status,conclusion,workflowName,event,headBranch,headSha,startedAt,updatedAt,url`;
+  let command = `run list --repo ${repo} --json databaseId,number,status,conclusion,workflowName,event,headBranch,headSha,startedAt,updatedAt,url`;
 
   if (options?.workflow) {
     command += ` --workflow "${options.workflow}"`;
@@ -95,7 +96,8 @@ export async function getWorkflowRuns(
   const runs = JSON.parse(output);
 
   return runs.map((run: any) => ({
-    id: run.id,
+    id: run.databaseId,
+    number: run.number,
     status: run.status,
     conclusion: run.conclusion,
     workflowName: run.workflowName,
@@ -112,12 +114,13 @@ export async function getWorkflowRuns(
  * 获取特定 run 的详情
  */
 export async function getRunDetails(repo: string, runId: number): Promise<GitHubRun> {
-  const command = `run view ${runId} --repo ${repo} --json id,status,conclusion,workflowName,event,headBranch,headSha,startedAt,updatedAt,url`;
+  const command = `run view ${runId} --repo ${repo} --json databaseId,number,status,conclusion,workflowName,event,headBranch,headSha,startedAt,updatedAt,url`;
   const output = await executeGH(command);
   const run = JSON.parse(output);
 
   return {
-    id: run.id,
+    id: run.databaseId,
+    number: run.number,
     status: run.status,
     conclusion: run.conclusion,
     workflowName: run.workflowName,

@@ -51,16 +51,23 @@ program
 program
   .command('version')
   .description('显示版本信息')
-  .action(() => {
-    console.log(JSON.stringify({
-      success: true,
-      data: {
-        name: '@optima-chat/ops-cli',
-        version: '1.0.0',
-        description: 'System operations and monitoring CLI',
-        environment: getCurrentEnvironment(),
-      }
-    }, null, 2));
+  .option('--json', 'JSON 格式输出')
+  .action((options) => {
+    const data = {
+      name: '@optima-chat/ops-cli',
+      version: '1.0.0',
+      description: 'System operations and monitoring CLI',
+      environment: getCurrentEnvironment(),
+    };
+
+    if (options.json || process.env.OPTIMA_OUTPUT === 'json') {
+      console.log(JSON.stringify({ success: true, data }, null, 2));
+    } else {
+      console.log(chalk.cyan('\nOptima Ops CLI\n'));
+      console.log(chalk.white(`  版本: ${chalk.yellow(data.version)}`));
+      console.log(chalk.white(`  环境: ${chalk.yellow(data.environment)}`));
+      console.log();
+    }
   });
 
 program.parse();

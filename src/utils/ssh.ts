@@ -10,8 +10,11 @@ const READONLY_COMMANDS = [
   'docker ps',
   'docker logs',
   'docker inspect',
-  'docker stats --no-stream',
+  'docker stats',
   'docker network',
+  'docker images',
+  'ip ',
+  'ip-',
   'df -h',
   'free -h',
   'systemctl status',
@@ -27,6 +30,7 @@ const READONLY_COMMANDS = [
   'whoami',
   'uptime',
   'date',
+  'wc',
 ];
 
 // 低风险命令（需要确认）
@@ -48,7 +52,6 @@ const DANGEROUS_COMMANDS = [
   'poweroff',
   ' > ',
   ' >> ',
-  '|',
   ';',
   '&&',
   '||',
@@ -68,6 +71,16 @@ export function validateCommand(command: string): { safe: boolean; reason?: stri
         reason: `命令包含危险操作: ${dangerous}`,
       };
     }
+  }
+
+  // 特殊检查：管道符（但允许在引号内）
+  // 匹配引号外的管道符
+  const outsideQuotes = command.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '');
+  if (outsideQuotes.includes('|')) {
+    return {
+      safe: false,
+      reason: '命令包含危险操作: |',
+    };
   }
 
   // 检查是否是只读命令

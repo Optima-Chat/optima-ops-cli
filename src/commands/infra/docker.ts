@@ -71,12 +71,12 @@ export const dockerCommand = new Command('docker')
 
         // 获取容器统计信息
         const statsResult = await ssh.executeCommand(
-          'docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}"'
+          'docker stats --no-stream --format "{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.MemPerc}}\\t{{.NetIO}}\\t{{.BlockIO}}\\t{{.PIDs}}"'
         );
 
         const statsLines = statsResult.stdout.trim().split('\n');
-        // 跳过表头
-        for (let i = 1; i < statsLines.length; i++) {
+        // 不需要跳过表头（已去除 table 前缀）
+        for (let i = 0; i < statsLines.length; i++) {
           const line = statsLines[i]?.trim();
           if (!line) continue;
 
@@ -104,8 +104,9 @@ export const dockerCommand = new Command('docker')
         result.summary.stopped_containers = states.filter(s => s !== 'running').length;
 
         // 获取镜像数量
-        const imagesResult = await ssh.executeCommand('docker images --format "{{.ID}}" | wc -l');
-        result.summary.total_images = parseInt(imagesResult.stdout.trim()) || 0;
+        const imagesResult = await ssh.executeCommand('docker images --format "{{.ID}}"');
+        const imageIds = imagesResult.stdout.trim().split('\n').filter(id => id.length > 0);
+        result.summary.total_images = imageIds.length;
       } catch (error: any) {
         throw new Error(`获取 Docker 信息失败: ${error.message}`);
       } finally {
