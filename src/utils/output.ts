@@ -109,6 +109,15 @@ export function printSeparator(): void {
 }
 
 /**
+ * 打印章节标题
+ */
+export function printSection(title: string): void {
+  console.log();
+  console.log(chalk.cyan.bold(`${title}`));
+  console.log(chalk.gray('─'.repeat(Math.min(title.length + 2, 60))));
+}
+
+/**
  * 打印键值对
  */
 export function printKeyValue(key: string, value: string, indent = 0): void {

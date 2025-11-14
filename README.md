@@ -6,10 +6,10 @@
 
 ## 核心特性
 
-- 🏥 **服务健康监控** - HTTP 端点检查 + Docker 容器状态
-- 🚀 **部署追踪** - GitHub Actions 集成，查看部署历史
+- 🏥 **服务健康监控** - HTTP 端点检查 + Docker 容器状态 ✅
+- 🚀 **部署追踪** - GitHub Actions 集成，查看部署历史 ✅
 - 🗄️ **数据库管理** - Schema 探索、健康监控、备份管理 ✅
-- 🖥️ **基础设施监控** - EC2、RDS、ALB 监控（即将推出）
+- 🖥️ **基础设施监控** - EC2 资源、Docker 容器、磁盘、网络、Runner ✅
 - 📝 **日志分析** - CloudWatch Logs 搜索（即将推出）
 - 🔒 **安全优先** - SSH 命令白名单、只读事务
 
@@ -187,6 +187,30 @@ optima-ops db backups-list [--env prod|stage|dev] [--limit 20] [--json]
 optima-ops db backups-info <backup-path> [--env prod|stage|dev] [--json]
 ```
 
+### Phase 3 - Infrastructure 基础设施监控（5个命令）✅
+
+```bash
+# EC2 实例信息和资源使用
+optima-ops infra ec2 [--env prod|stage|dev] [--json]
+# 显示: 实例信息、CPU/内存/负载、磁盘使用、网络接口
+
+# Docker 容器资源使用情况
+optima-ops infra docker [--env prod|stage|dev] [--json]
+# 显示: 容器统计（CPU%、内存、网络I/O、磁盘I/O）
+
+# 磁盘使用情况和清理建议
+optima-ops infra disk [--env prod|stage|dev] [--details] [--json]
+# 显示: 文件系统、Docker数据使用、大目录、清理建议
+
+# Docker 网络配置和容器网络
+optima-ops infra network [--env prod|stage|dev] [--json]
+# 显示: 主机网络接口、Docker 网络、容器网络和端口映射
+
+# GitHub Actions Runner 状态
+optima-ops infra runner [--env prod|stage|dev] [--logs 20] [--json]
+# 显示: Runner 状态、服务信息、最近任务、日志
+```
+
 ### 工具命令
 
 ```bash
@@ -199,9 +223,8 @@ optima-ops version
 
 ### 即将推出的模块
 
-- **Infrastructure 模块** - EC2、RDS、ALB 指标
-- **Logs 模块** - CloudWatch 日志搜索
-- **Config 模块** - 环境变量管理
+- **Logs 模块** - CloudWatch 日志搜索和错误聚合
+- **Config 模块** - 参数配置查看和对比
 
 ## 环境管理
 
@@ -328,9 +351,17 @@ npm run lint
   - [x] 基础操作 2 个命令（query, sample）
   - [x] Backup & Dump 3 个命令（dump, backups-list, backups-info）
 
-- [ ] **Phase 3**: Infrastructure 模块（EC2/RDS/ALB 监控）
-- [ ] **Phase 4**: Logs 模块（CloudWatch 搜索）
-- [ ] **Phase 5**: Config 模块（环境变量管理）
+- [x] **Phase 3 完成** (2025-01-14)：Infrastructure 模块
+  - [x] 环境配置扩展（ec2InstanceId, dockerNetwork, githubRunner）
+  - [x] Infra 模块 5 个命令（ec2, docker, disk, network, runner）
+  - [x] EC2 资源监控（实例信息、系统资源、磁盘、网络）
+  - [x] Docker 容器统计（CPU、内存、网络/磁盘 I/O）
+  - [x] 磁盘使用分析（文件系统、Docker 数据、清理建议）
+  - [x] 网络配置查看（主机接口、Docker 网络、容器网络）
+  - [x] GitHub Runner 状态（服务状态、最近任务、日志）
+
+- [ ] **Phase 4**: Logs 模块（CloudWatch 搜索和错误聚合）
+- [ ] **Phase 5**: Config 模块（参数配置查看和对比）
 
 ## 常见问题
 
