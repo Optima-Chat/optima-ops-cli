@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import { initCredentialsCommand } from './init-credentials.js';
 import { listCommand } from './list.js';
 import { infoCommand } from './info.js';
 import { tablesCommand } from './tables.js';
@@ -21,6 +22,7 @@ import { backupsInfoCommand } from './backups-info.js';
 
 export const dbCommand = new Command('db')
   .description('数据库管理和监控')
+  .addCommand(initCredentialsCommand)
   .addCommand(listCommand)
   .addCommand(infoCommand)
   .addCommand(tablesCommand)

@@ -16,6 +16,9 @@ coverage/
 .env.local
 .env.*.local
 
+# Database credentials
+.db-credentials.json
+
 # Editor
 .vscode/
 .idea/

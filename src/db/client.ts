@@ -1,6 +1,8 @@
 import { Client, ClientConfig } from 'pg';
-import { Environment, getCurrentEnvConfig } from '../utils/config.js';
+import { Environment } from '../utils/config.js';
 import { DatabaseError } from '../utils/error.js';
+import { getDatabaseUser } from './password.js';
+import { SSHTunnel } from './tunnel.js';
 
 export interface QueryResult<T = any> {
   rows: T[];
@@ -10,6 +12,7 @@ export interface QueryResult<T = any> {
 
 export class DatabaseClient {
   private client: Client | null = null;
+  private tunnel: SSHTunnel | null = null;
   private connected: boolean = false;
 
   constructor(
@@ -20,47 +23,72 @@ export class DatabaseClient {
 
   /**
    * Connect to the database
+   * Automatically establishes SSH tunnel to private RDS
    */
   async connect(): Promise<void> {
     if (this.connected) return;
 
-    const connectionString = this.getConnectionString();
-
-    const config: ClientConfig = {
-      connectionString,
-      statement_timeout: 30000, // 30 seconds
-      query_timeout: 30000,
-      idle_in_transaction_session_timeout: 60000, // 1 minute
-      application_name: 'optima-ops-cli',
-    };
-
-    this.client = new Client(config);
-
     try {
+      // Establish SSH tunnel first
+      this.tunnel = new SSHTunnel(this.env);
+      const localPort = await this.tunnel.connect();
+
+      // Connect to database through tunnel
+      const connectionString = this.getConnectionString(localPort);
+
+      const config: ClientConfig = {
+        connectionString,
+        statement_timeout: 30000, // 30 seconds
+        query_timeout: 30000,
+        idle_in_transaction_session_timeout: 60000, // 1 minute
+        application_name: 'optima-ops-cli',
+        ssl: {
+          rejectUnauthorized: false, // RDS uses self-signed cert through SSH tunnel
+        },
+      };
+
+      this.client = new Client(config);
       await this.client.connect();
       this.connected = true;
     } catch (error: any) {
-      const envConfig = getCurrentEnvConfig();
+      // Clean up tunnel if connection failed
+      if (this.tunnel) {
+        await this.tunnel.disconnect();
+        this.tunnel = null;
+      }
+
       throw new DatabaseError(
         `无法连接到数据库 ${this.database}: ${error.message}`,
-        { database: this.database, host: envConfig.rdsHost, env: this.env }
+        { database: this.database, env: this.env, error: error.message }
       );
     }
   }
 
   /**
-   * Disconnect from the database
+   * Disconnect from the database and close SSH tunnel
    */
   async disconnect(): Promise<void> {
-    if (!this.connected || !this.client) return;
+    if (!this.connected && !this.tunnel) return;
 
     try {
-      await this.client.end();
-      this.connected = false;
-      this.client = null;
+      if (this.client) {
+        await this.client.end();
+        this.client = null;
+      }
     } catch (error) {
       // Ignore disconnection errors
     }
+
+    try {
+      if (this.tunnel) {
+        await this.tunnel.disconnect();
+        this.tunnel = null;
+      }
+    } catch (error) {
+      // Ignore tunnel close errors
+    }
+
+    this.connected = false;
   }
 
   /**
@@ -285,29 +313,9 @@ export class DatabaseClient {
   /**
    * Get connection string for the database
    */
-  private getConnectionString(): string {
-    const envConfig = getCurrentEnvConfig();
-    const dbUser = this.getDatabaseUser();
+  private getConnectionString(localPort: number): string {
+    const dbUser = getDatabaseUser(this.database, this.env);
 
-    return `postgresql://${dbUser}:${this.password}@${envConfig.rdsHost}:5432/${this.database}`;
-  }
-
-  /**
-   * Get database user based on database name
-   */
-  private getDatabaseUser(): string {
-    // Map database names to users
-    const userMap: Record<string, string> = {
-      optima_auth: 'auth_user',
-      optima_mcp: 'mcp_user',
-      optima_commerce: 'commerce_user',
-      optima_chat: 'chat_user',
-      optima_stage_auth: 'auth_user',
-      optima_stage_mcp: 'mcp_user',
-      optima_stage_commerce: 'commerce_user',
-      optima_stage_chat: 'chat_user',
-    };
-
-    return userMap[this.database] || 'optima_admin';
+    return `postgresql://${dbUser}:${this.password}@127.0.0.1:${localPort}/${this.database}`;
   }
 }

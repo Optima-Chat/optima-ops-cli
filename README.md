@@ -39,7 +39,13 @@ npm link
    aws configure
    ```
 
-3. **GitHub CLI**（可选，用于部署命令）：
+3. **数据库凭证** - 首次运行初始化：
+   ```bash
+   optima-ops db init-credentials
+   ```
+   此命令会自动从 AWS Secrets Manager 和 Terraform State 获取所有数据库密码，保存到本地配置文件（已加入 .gitignore）
+
+4. **GitHub CLI**（可选，用于部署命令）：
    ```bash
    brew install gh
    gh auth login
@@ -63,11 +69,11 @@ optima-ops services health --env stage
 # 查看部署历史
 optima-ops deploy status user-auth
 
-# 数据库健康检查
-optima-ops db health
-
-# 列出所有数据库
+# 数据库操作（自动通过 SSH 隧道连接私有 RDS）
 optima-ops db list
+optima-ops db info optima_auth
+optima-ops db tables --database optima_auth
+optima-ops db health --database optima_auth
 
 # JSON 输出（适合脚本）
 optima-ops services health --json
