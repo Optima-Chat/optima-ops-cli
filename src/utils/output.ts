@@ -38,7 +38,7 @@ export function outputError(error: any, code?: string): void {
   console.error(JSON.stringify({
     success: false,
     error: {
-      code: code || 'UNKNOWN_ERROR',
+      code: error.code || code || 'UNKNOWN_ERROR',
       message: error.message || String(error),
       details: error.details || undefined,
     },

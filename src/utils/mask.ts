@@ -183,6 +183,9 @@ export function maskObject(obj: Record<string, any>): Record<string, any> {
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'string') {
       masked[key] = maskValue(key, value);
+    } else if (Array.isArray(value)) {
+      // 保持数组原样
+      masked[key] = value;
     } else if (typeof value === 'object' && value !== null) {
       masked[key] = maskObject(value);
     } else {
