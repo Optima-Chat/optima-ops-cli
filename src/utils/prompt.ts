@@ -219,3 +219,22 @@ export async function confirmDangerousAction(
 
   return confirmPrompt('确定要继续吗？', false);
 }
+
+// ============== Prompt Helper Class ==============
+
+/**
+ * PromptHelper 类提供统一的提示接口
+ */
+export class PromptHelper {
+  static inputText = inputPrompt;
+  static select = selectPrompt;
+  static multiSelect = multiSelectPrompt;
+  static confirm = confirmPrompt;
+  static selectEnvironment = selectEnvironment;
+  static selectService = selectService;
+  static selectMultipleServices = selectMultipleServices;
+  static selectDatabase = selectDatabase;
+  static selectTable = selectTable;
+  static confirmDangerousAction = confirmDangerousAction;
+  static isInteractive = isInteractive;
+}

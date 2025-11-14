@@ -10,7 +10,7 @@
 - 🚀 **部署追踪** - GitHub Actions 集成，查看部署历史 ✅
 - 🗄️ **数据库管理** - Schema 探索、健康监控、备份管理 ✅
 - 🖥️ **基础设施监控** - EC2 资源、Docker 容器、磁盘、网络、Runner ✅
-- 📝 **日志分析** - CloudWatch Logs 搜索（即将推出）
+- 📝 **日志分析** - 容器日志搜索、错误聚合、实时跟踪、日志导出 ✅
 - 🔒 **安全优先** - SSH 命令白名单、只读事务
 
 ## 快速开始
@@ -211,6 +211,22 @@ optima-ops infra runner [--env prod|stage|dev] [--logs 20] [--json]
 # 显示: Runner 状态、服务信息、最近任务、日志
 ```
 
+### Phase 4 - Logs 日志分析（4个命令）✅
+
+```bash
+# 搜索日志中的关键词（支持正则表达式）
+optima-ops logs search [pattern] [--env prod|stage|dev] [--service <name>] [--since 1h] [--context 3] [--case-sensitive] [--json]
+
+# 查看错误日志并聚合分析
+optima-ops logs errors [--env prod|stage|dev] [--service <name>] [--since 1h] [--level error|critical|warning] [--aggregate] [--json]
+
+# 查看容器日志尾部（实时或历史）
+optima-ops logs tail [service] [--env prod|stage|dev] [--tail 100] [--follow] [--since 1h] [--json]
+
+# 导出容器日志到本地文件
+optima-ops logs export [service] [--env prod|stage|dev] [--output <file>] [--since 24h] [--tail <lines>] [--format text|json] [--json]
+```
+
 ### 工具命令
 
 ```bash
@@ -223,7 +239,6 @@ optima-ops version
 
 ### 即将推出的模块
 
-- **Logs 模块** - CloudWatch 日志搜索和错误聚合
 - **Config 模块** - 参数配置查看和对比
 
 ## 环境管理
@@ -360,7 +375,14 @@ npm run lint
   - [x] 网络配置查看（主机接口、Docker 网络、容器网络）
   - [x] GitHub Runner 状态（服务状态、最近任务、日志）
 
-- [ ] **Phase 4**: Logs 模块（CloudWatch 搜索和错误聚合）
+- [x] **Phase 4 完成** (2025-01-14)：Logs 模块
+  - [x] PromptHelper 类封装（统一交互式提示接口）
+  - [x] Logs 模块 4 个命令（search, errors, tail, export）
+  - [x] 日志搜索（正则表达式、上下文行、大小写敏感）
+  - [x] 错误日志分析（级别过滤、错误聚合、相似度检测）
+  - [x] 日志尾部查看（实时跟踪、历史日志、高亮显示）
+  - [x] 日志导出（本地文件、文本/JSON 格式、时间过滤）
+
 - [ ] **Phase 5**: Config 模块（参数配置查看和对比）
 
 ## 常见问题
