@@ -20,16 +20,16 @@ export async function getDatabasePassword(
     const dbUser = getDatabaseUser(database);
     const paramName = `/optima/${env}/database/${dbUser}/password`;
 
-    const password = await getParameter(paramName);
+    const param = await getParameter(paramName);
 
-    if (!password) {
+    if (!param || !param.Value) {
       throw new ConfigurationError(
         `无法获取数据库密码: ${paramName}`,
         { database, env }
       );
     }
 
-    return password;
+    return param.Value;
   } catch (error: any) {
     throw new ConfigurationError(
       `获取数据库密码失败: ${error.message}`,

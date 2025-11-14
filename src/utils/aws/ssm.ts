@@ -1,4 +1,9 @@
-import { SSMClient, GetParameterCommand, GetParametersByPathCommand } from '@aws-sdk/client-ssm';
+import {
+  SSMClient,
+  GetParameterCommand,
+  GetParametersByPathCommand,
+  Parameter,
+} from '@aws-sdk/client-ssm';
 import { getAWSRegion } from '../config.js';
 import { AWSError } from '../error.js';
 
@@ -13,9 +18,9 @@ export function createSSMClient(): SSMClient {
 }
 
 /**
- * 获取单个参数
+ * 获取单个参数（完整对象）
  */
-export async function getParameter(name: string, decrypt = true): Promise<string | undefined> {
+export async function getParameter(name: string, decrypt = true): Promise<Parameter | undefined> {
   const client = createSSMClient();
 
   try {
@@ -25,7 +30,7 @@ export async function getParameter(name: string, decrypt = true): Promise<string
     });
 
     const response = await client.send(command);
-    return response.Parameter?.Value;
+    return response.Parameter;
   } catch (error: any) {
     if (error.name === 'ParameterNotFound') {
       return undefined;
@@ -38,14 +43,14 @@ export async function getParameter(name: string, decrypt = true): Promise<string
 }
 
 /**
- * 获取路径下的所有参数
+ * 获取路径下的所有参数（返回完整的 Parameter 对象数组）
  */
 export async function getParametersByPath(
   path: string,
-  decrypt = true
-): Promise<Record<string, string>> {
+  decrypt = false
+): Promise<Parameter[]> {
   const client = createSSMClient();
-  const parameters: Record<string, string> = {};
+  const parameters: Parameter[] = [];
 
   try {
     let nextToken: string | undefined;
@@ -61,13 +66,7 @@ export async function getParametersByPath(
       const response = await client.send(command);
 
       if (response.Parameters) {
-        for (const param of response.Parameters) {
-          if (param.Name && param.Value) {
-            // 移除路径前缀，只保留参数名
-            const key = param.Name.replace(path, '').replace(/^\//, '');
-            parameters[key] = param.Value;
-          }
-        }
+        parameters.push(...response.Parameters);
       }
 
       nextToken = response.NextToken;
@@ -83,6 +82,27 @@ export async function getParametersByPath(
 }
 
 /**
+ * 获取路径下的所有参数（返回简单的键值对）
+ */
+export async function getParametersMapByPath(
+  path: string,
+  decrypt = true
+): Promise<Record<string, string>> {
+  const parameters = await getParametersByPath(path, decrypt);
+  const paramMap: Record<string, string> = {};
+
+  for (const param of parameters) {
+    if (param.Name && param.Value) {
+      // 移除路径前缀，只保留参数名
+      const key = param.Name.replace(path, '').replace(/^\//, '');
+      paramMap[key] = param.Value;
+    }
+  }
+
+  return paramMap;
+}
+
+/**
  * 获取服务的所有环境变量
  */
 export async function getServiceConfig(
@@ -92,5 +112,5 @@ export async function getServiceConfig(
   const envPrefix = env === 'production' ? 'prod' : env === 'stage' ? 'stage' : 'dev';
   const path = `/optima/${envPrefix}/${service}`;
 
-  return getParametersByPath(path);
+  return getParametersMapByPath(path);
 }

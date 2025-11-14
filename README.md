@@ -11,7 +11,8 @@
 - 🗄️ **数据库管理** - Schema 探索、健康监控、备份管理 ✅
 - 🖥️ **基础设施监控** - EC2 资源、Docker 容器、磁盘、网络、Runner ✅
 - 📝 **日志分析** - 容器日志搜索、错误聚合、实时跟踪、日志导出 ✅
-- 🔒 **安全优先** - SSH 命令白名单、只读事务
+- ⚙️ **配置管理** - AWS Parameter Store 参数查看、脱敏、环境对比 ✅
+- 🔒 **安全优先** - SSH 命令白名单、只读事务、敏感数据自动脱敏
 
 ## 快速开始
 
@@ -227,6 +228,22 @@ optima-ops logs tail [service] [--env prod|stage|dev] [--tail 100] [--follow] [-
 optima-ops logs export [service] [--env prod|stage|dev] [--output <file>] [--since 24h] [--tail <lines>] [--format text|json] [--json]
 ```
 
+### Phase 5 - Config 配置管理（4个命令）✅
+
+```bash
+# 获取单个配置参数值（自动脱敏）
+optima-ops config get <service> <parameter> [--env prod|stage|dev] [--raw] [--json]
+
+# 列出服务的所有配置参数（不显示值）
+optima-ops config list <service> [--env prod|stage|dev] [--json]
+
+# 显示服务的所有配置参数（值已脱敏）
+optima-ops config show <service> [--env prod|stage|dev] [--raw] [--json]
+
+# 对比两个环境的配置差异
+optima-ops config compare <service> --from-env <env> --to-env <env> [--json]
+```
+
 ### 工具命令
 
 ```bash
@@ -237,9 +254,9 @@ optima-ops env
 optima-ops version
 ```
 
-### 即将推出的模块
+### 已完成所有模块! 🎉
 
-- **Config 模块** - 参数配置查看和对比
+所有核心功能已实现完成
 
 ## 环境管理
 
@@ -383,7 +400,14 @@ npm run lint
   - [x] 日志尾部查看（实时跟踪、历史日志、高亮显示）
   - [x] 日志导出（本地文件、文本/JSON 格式、时间过滤）
 
-- [ ] **Phase 5**: Config 模块（参数配置查看和对比）
+- [x] **Phase 5 完成** (2025-01-14)：Config 模块
+  - [x] 数据脱敏工具（utils/mask.ts，智能识别敏感信息）
+  - [x] AWS SSM 客户端增强（返回完整 Parameter 对象）
+  - [x] Config 模块 4 个命令（get, list, show, compare）
+  - [x] 单参数查询（自动脱敏、原始值可选）
+  - [x] 参数列表查看（显示类型、版本、修改时间）
+  - [x] 批量参数查看（值自动脱敏、SecureString 标识）
+  - [x] 环境配置对比（差异分析、缺失参数、值不同标记）
 
 ## 常见问题
 

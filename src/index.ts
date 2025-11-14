@@ -11,6 +11,7 @@ import { deployCommand } from './commands/deploy/index.js';
 import { dbCommand } from './commands/db/index.js';
 import { infraCommand } from './commands/infra/index.js';
 import { logsCommand } from './commands/logs/index.js';
+import { configCommand } from './commands/config/index.js';
 import { getCurrentEnvironment, getCurrentEnvConfig } from './utils/config.js';
 import chalk from 'chalk';
 
@@ -23,14 +24,12 @@ program
   .option('--env <env>', '设置环境 (production/stage/development)');
 
 // 注册命令模块
-program.addCommand(servicesCommand);  // 服务管理
-program.addCommand(deployCommand);    // 部署管理
+program.addCommand(servicesCommand);  // 服务管理 (Phase 1)
+program.addCommand(deployCommand);    // 部署管理 (Phase 1)
 program.addCommand(dbCommand);        // 数据库管理 (Phase 2)
 program.addCommand(infraCommand);     // 基础设施监控 (Phase 3)
 program.addCommand(logsCommand);      // 日志分析 (Phase 4)
-
-// TODO: 添加更多模块
-// program.addCommand(configCommand);    // 配置管理 (Phase 5)
+program.addCommand(configCommand);    // 配置管理 (Phase 5)
 
 // 显示环境信息
 program
