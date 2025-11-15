@@ -190,12 +190,12 @@ export class DatabaseClient {
   > {
     const { rows } = await this.query(`
       SELECT
-        tablename AS name,
-        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
+        relname AS name,
+        pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) AS size,
         n_live_tup AS rows,
         last_vacuum
       FROM pg_stat_user_tables
-      ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+      ORDER BY pg_total_relation_size(schemaname||'.'||relname) DESC
     `);
     return rows;
   }
@@ -229,7 +229,7 @@ export class DatabaseClient {
         pg_size_pretty(pg_relation_size(indexrelid)) AS size
       FROM pg_indexes
       JOIN pg_stat_user_indexes ON pg_indexes.indexname = pg_stat_user_indexes.indexrelname
-      WHERE schemaname = 'public' AND tablename = $1
+      WHERE schemaname = 'public' AND pg_indexes.tablename = $1
     `, [tableName]);
 
     // Get foreign keys

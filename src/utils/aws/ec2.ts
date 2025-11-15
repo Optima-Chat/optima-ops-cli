@@ -121,3 +121,43 @@ export function getInstanceEnvironment(instance: Instance): string | undefined {
 export function getInstanceName(instance: Instance): string | undefined {
   return getInstanceTag(instance, 'Name');
 }
+
+/**
+ * 通过环境动态查找 EC2 实例 ID
+ */
+export async function findEC2InstanceByEnvironment(environment: string): Promise<string | null> {
+  const nameMap: Record<string, string> = {
+    production: 'optima-prod-host',
+    stage: 'optima-stage-host',
+    development: 'optima-dev-host',
+  };
+
+  const instanceName = nameMap[environment];
+  if (!instanceName) {
+    throw new AWSError(`未知环境: ${environment}`, { environment });
+  }
+
+  const client = createEC2Client();
+
+  try {
+    const command = new DescribeInstancesCommand({
+      Filters: [
+        { Name: 'tag:Name', Values: [instanceName] },
+        { Name: 'instance-state-name', Values: ['running'] },
+      ],
+    });
+
+    const response = await client.send(command);
+
+    if (response.Reservations?.[0]?.Instances?.[0]?.InstanceId) {
+      return response.Reservations[0].Instances[0].InstanceId;
+    }
+
+    return null;
+  } catch (error: any) {
+    throw new AWSError(
+      `查找 EC2 实例失败 (环境: ${environment})`,
+      { environment, error: error.message }
+    );
+  }
+}

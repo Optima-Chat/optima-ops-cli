@@ -31,7 +31,7 @@ interface ConfigSchema {
 export const ENV_CONFIG = {
   production: {
     ec2Host: 'ec2-prod.optima.shop',
-    ec2InstanceId: 'i-0c579b1b947262265',
+    ec2Environment: 'production',
     rdsHost: 'optima-prod-postgres.ctg866o0ehac.ap-southeast-1.rds.amazonaws.com',
     albDnsName: 'optima-prod-alb-1234567890.ap-southeast-1.elb.amazonaws.com',
     dockerNetwork: 'optima-prod',
@@ -40,7 +40,7 @@ export const ENV_CONFIG = {
   },
   stage: {
     ec2Host: 'ec2-stage.optima.shop',
-    ec2InstanceId: 'i-066927482ec6322a6',
+    ec2Environment: 'stage',
     rdsHost: 'optima-stage-postgres.ctg866o0ehac.ap-southeast-1.rds.amazonaws.com',
     albDnsName: 'optima-stage-alb-1234567890.ap-southeast-1.elb.amazonaws.com',
     dockerNetwork: 'optima-stage',
@@ -49,7 +49,7 @@ export const ENV_CONFIG = {
   },
   development: {
     ec2Host: 'ec2-dev.optima.shop',
-    ec2InstanceId: 'i-0000000000000000',
+    ec2Environment: 'development',
     rdsHost: 'optima-dev-postgres.ctg866o0ehac.ap-southeast-1.rds.amazonaws.com',
     albDnsName: 'optima-dev-alb-1234567890.ap-southeast-1.elb.amazonaws.com',
     dockerNetwork: 'optima-dev',

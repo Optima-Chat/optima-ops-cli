@@ -3,7 +3,8 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import { getCurrentEnvironment, getCurrentEnvConfig, Environment } from '../../utils/config.js';
 import { SSHClient } from '../../utils/ssh.js';
-import { getEC2Instance } from '../../utils/aws/ec2.js';
+import { getEC2Instance, findEC2InstanceByEnvironment } from '../../utils/aws/ec2.js';
+import { CommandTimer, isTimingEnabled } from '../../utils/timer.js';
 import {
   isJsonOutput,
   outputSuccess,
@@ -62,6 +63,7 @@ export const ec2Command = new Command('ec2')
   .option('--json', 'JSON 格式输出')
   .action(async (options) => {
     try {
+      const timer = new CommandTimer();
       const env: Environment = options.env || getCurrentEnvironment();
       const envConfig = getCurrentEnvConfig();
 
@@ -69,10 +71,19 @@ export const ec2Command = new Command('ec2')
         printTitle(`🖥️  EC2 实例信息 - ${env} 环境`);
       }
 
+      // 动态查找 EC2 实例
+      const instanceId = await findEC2InstanceByEnvironment(envConfig.ec2Environment);
+      timer.step('查找 EC2 实例');
+
+      if (!instanceId) {
+        throw new Error(`未找到环境 ${envConfig.ec2Environment} 的 EC2 实例`);
+      }
+
       // 获取 AWS EC2 实例信息
-      const instanceInfo = await getEC2Instance(envConfig.ec2InstanceId);
+      const instanceInfo = await getEC2Instance(instanceId);
+      timer.step('获取实例信息');
       if (!instanceInfo) {
-        throw new Error(`无法获取 EC2 实例信息: ${envConfig.ec2InstanceId}`);
+        throw new Error(`无法获取 EC2 实例信息: ${instanceId}`);
       }
 
       // 获取实例状态（暂时注释，未使用）
@@ -185,8 +196,14 @@ export const ec2Command = new Command('ec2')
       }
 
       // 输出结果
+      timer.step('数据处理');
+
       if (isJsonOutput()) {
-        outputSuccess(result);
+        const output = {
+          ...result,
+          _timing: isTimingEnabled() ? timer.getTimingData() : undefined,
+        };
+        outputSuccess(output);
       } else {
         // 实例基本信息
         printSection('实例信息');
@@ -265,6 +282,10 @@ export const ec2Command = new Command('ec2')
           console.log();
           console.log(chalk.red('⚠️  磁盘使用率超过 85%，建议清理:'));
           console.log(chalk.gray('  docker system prune -a -f --volumes'));
+        }
+
+        if (isTimingEnabled()) {
+          timer.printSummary();
         }
       }
     } catch (error) {

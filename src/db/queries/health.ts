@@ -48,7 +48,7 @@ export const CACHE_HIT_RATIO_QUERY = `
  */
 export const CACHE_HIT_BY_TABLE_QUERY = `
   SELECT
-    schemaname || '.' || tablename AS table_name,
+    schemaname || '.' || relname AS table_name,
     heap_blks_hit + heap_blks_read AS total_reads,
     CASE
       WHEN (heap_blks_hit + heap_blks_read) = 0 THEN NULL
@@ -136,7 +136,7 @@ export function getSlowQueriesQuery(thresholdSeconds: number = 5): string {
  */
 export const TABLE_BLOAT_QUERY = `
   SELECT
-    schemaname || '.' || tablename AS table_name,
+    schemaname || '.' || relname AS table_name,
     n_live_tup AS live_tuples,
     n_dead_tup AS dead_tuples,
     ROUND(n_dead_tup::numeric / NULLIF(n_live_tup, 0) * 100, 2) AS bloat_pct,
@@ -153,7 +153,7 @@ export const TABLE_BLOAT_QUERY = `
  */
 export const INDEX_USAGE_QUERY = `
   SELECT
-    schemaname || '.' || tablename AS table_name,
+    schemaname || '.' || relname AS table_name,
     indexrelname AS index_name,
     idx_scan,
     idx_tup_read,
@@ -168,7 +168,7 @@ export const INDEX_USAGE_QUERY = `
  */
 export const UNUSED_INDEXES_QUERY = `
   SELECT
-    schemaname || '.' || tablename AS table_name,
+    schemaname || '.' || relname AS table_name,
     indexrelname AS index_name,
     pg_size_pretty(pg_relation_size(indexrelid)) AS index_size,
     idx_scan
