@@ -1,0 +1,105 @@
+{
+  "$schema": "./services-config.schema.json",
+  "services": {
+    "core": [
+      {
+        "name": "user-auth",
+        "repo": "Optima-Chat/user-auth",
+        "container": "optima-user-auth-prod",
+        "healthEndpoint": "https://auth.optima.shop/health",
+        "type": "core",
+        "hasDatabase": true,
+        "hasRedis": true
+      },
+      {
+        "name": "mcp-host",
+        "repo": "Optima-Chat/mcp-host",
+        "container": "optima-mcp-host-prod",
+        "healthEndpoint": "https://mcp.optima.shop/health",
+        "type": "core",
+        "hasDatabase": true,
+        "hasRedis": false
+      },
+      {
+        "name": "commerce-backend",
+        "repo": "Optima-Chat/commerce-backend",
+        "container": "optima-commerce-backend-prod",
+        "healthEndpoint": "https://api.optima.shop/health",
+        "type": "core",
+        "hasDatabase": true,
+        "hasRedis": true
+      },
+      {
+        "name": "agentic-chat",
+        "repo": "Optima-Chat/agentic-chat",
+        "container": "optima-agentic-chat-prod",
+        "healthEndpoint": "https://ai.optima.shop",
+        "type": "core",
+        "hasDatabase": true,
+        "hasRedis": false
+      }
+    ],
+    "mcp": [
+      {
+        "name": "comfy-mcp",
+        "repo": "Optima-Chat/comfy-mcp",
+        "container": "optima-comfy-mcp-prod",
+        "healthEndpoint": "https://mcp-comfy.optima.shop/health",
+        "port": 8261,
+        "type": "mcp",
+        "hasDatabase": false,
+        "hasRedis": false
+      },
+      {
+        "name": "fetch-mcp",
+        "repo": "Optima-Chat/fetch-mcp",
+        "container": "optima-fetch-mcp-prod",
+        "healthEndpoint": "https://mcp-fetch.optima.shop/health",
+        "port": 8250,
+        "type": "mcp",
+        "hasDatabase": false,
+        "hasRedis": false
+      },
+      {
+        "name": "perplexity-mcp",
+        "repo": "Optima-Chat/perplexity-mcp",
+        "container": "optima-perplexity-mcp-prod",
+        "healthEndpoint": "https://mcp-research.optima.shop/health",
+        "port": 8220,
+        "type": "mcp",
+        "hasDatabase": false,
+        "hasRedis": false
+      },
+      {
+        "name": "shopify-mcp",
+        "repo": "Optima-Chat/shopify-mcp",
+        "container": "optima-shopify-mcp-prod",
+        "healthEndpoint": "https://mcp-shopify.optima.shop/health",
+        "port": 8210,
+        "type": "mcp",
+        "hasDatabase": false,
+        "hasRedis": false
+      },
+      {
+        "name": "commerce-mcp",
+        "repo": "Optima-Chat/commerce-mcp",
+        "container": "optima-commerce-mcp-prod",
+        "healthEndpoint": "https://mcp-commerce.optima.shop/health",
+        "port": 8270,
+        "type": "mcp",
+        "hasDatabase": false,
+        "hasRedis": false
+      },
+      {
+        "name": "google-ads-mcp",
+        "repo": "Optima-Chat/google-ads-mcp",
+        "container": "optima-google-ads-mcp-prod",
+        "healthEndpoint": "https://mcp-ads.optima.shop/health",
+        "port": 8240,
+        "type": "mcp",
+        "hasDatabase": true,
+        "hasRedis": false
+      }
+    ]
+  }
+}

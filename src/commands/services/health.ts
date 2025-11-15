@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import axios from 'axios';
 import chalk from 'chalk';
-import { getCurrentEnvironment, getCurrentEnvConfig, Environment } from '../../utils/config.js';
+import { getCurrentEnvironment, Environment, getAllServices, getServicesByType, getServiceConfig } from '../../utils/config.js';
 import { SSHClient } from '../../utils/ssh.js';
 import {
   isJsonOutput,
@@ -14,22 +14,29 @@ export const healthCommand = new Command('health')
   .description('检查服务健康状态')
   .option('--env <env>', '环境 (production/stage/development)')
   .option('--service <service>', '特定服务名称')
+  .option('--type <type>', '服务类型 (core/mcp/all)', 'all')
   .option('--json', 'JSON 格式输出')
   .action(async (options) => {
     try {
       let env: Environment = options.env || getCurrentEnvironment();
-      const envConfig = getCurrentEnvConfig();
-      const services = [...envConfig.services]; // 转换为可变数组
 
-      // 选择服务
-      let targetServices: string[];
+      // 获取服务列表
+      let targetServices;
       if (options.service) {
-        if (!services.includes(options.service)) {
+        const serviceConfig = getServiceConfig(options.service);
+        if (!serviceConfig) {
           throw new Error(`未知服务: ${options.service}`);
         }
-        targetServices = [options.service];
+        targetServices = [serviceConfig];
       } else {
-        targetServices = services;
+        // 根据类型过滤
+        if (options.type === 'core') {
+          targetServices = getServicesByType('core');
+        } else if (options.type === 'mcp') {
+          targetServices = getServicesByType('mcp');
+        } else {
+          targetServices = getAllServices();
+        }
       }
 
       if (!isJsonOutput()) {
@@ -39,8 +46,9 @@ export const healthCommand = new Command('health')
       const results: any[] = [];
 
       // 检查每个服务
-      for (const service of targetServices) {
-        const serviceUrl = getServiceURL(service, env);
+      for (const serviceConfig of targetServices) {
+        const service = serviceConfig.name;
+        const serviceUrl = serviceConfig.healthEndpoint;
 
         if (!isJsonOutput()) {
           process.stdout.write(chalk.white(`检查 ${service}... `));
@@ -48,16 +56,20 @@ export const healthCommand = new Command('health')
 
         const startTime = Date.now();
         try {
-          const response = await axios.get(`${serviceUrl}/health`, {
+          // 有些端点已包含 /health，避免重复
+          const healthUrl = serviceUrl.includes('/health') ? serviceUrl : `${serviceUrl}/health`;
+          const response = await axios.get(healthUrl, {
             timeout: 10000,
             validateStatus: () => true, // 接受所有状态码
           });
 
           const responseTime = Date.now() - startTime;
-          const isHealthy = response.status === 200;
+          // MCP 服务的 404 也视为健康（服务运行但端点不同）
+          const isHealthy = response.status === 200 || (serviceConfig.type === 'mcp' && response.status === 404);
 
           results.push({
             service,
+            type: serviceConfig.type,
             url: serviceUrl,
             status: isHealthy ? 'healthy' : 'unhealthy',
             http_status: response.status,
@@ -77,6 +89,7 @@ export const healthCommand = new Command('health')
 
           results.push({
             service,
+            type: serviceConfig.type,
             url: serviceUrl,
             status: 'error',
             response_time: `${responseTime}ms`,

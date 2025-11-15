@@ -1,7 +1,12 @@
 import Conf from 'conf';
 import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(__dirname, '../..');
+const servicesConfigPath = join(projectRoot, 'services-config.json');
 
 // ============== 类型定义 ==============
 
@@ -177,4 +182,84 @@ export function getAWSRegion(): string {
  */
 export function getConfigPath(): string {
   return config.path;
+}
+
+// ============== 服务配置 ==============
+
+export interface ServiceConfig {
+  name: string;
+  repo: string;
+  container: string;
+  healthEndpoint: string;
+  type: 'core' | 'mcp';
+  port?: number;
+  hasDatabase: boolean;
+  hasRedis: boolean;
+}
+
+interface ServicesConfigFile {
+  services: {
+    core: ServiceConfig[];
+    mcp: ServiceConfig[];
+  };
+}
+
+let cachedServicesConfig: ServicesConfigFile | null = null;
+
+/**
+ * 加载服务配置文件
+ */
+function loadServicesConfig(): ServicesConfigFile {
+  if (cachedServicesConfig) {
+    return cachedServicesConfig;
+  }
+
+  if (!existsSync(servicesConfigPath)) {
+    throw new Error(`服务配置文件不存在: ${servicesConfigPath}`);
+  }
+
+  try {
+    const content = readFileSync(servicesConfigPath, 'utf-8');
+    cachedServicesConfig = JSON.parse(content);
+    return cachedServicesConfig!;
+  } catch (error: any) {
+    throw new Error(`读取服务配置文件失败: ${error.message}`);
+  }
+}
+
+/**
+ * 获取所有服务配置
+ */
+export function getAllServices(): ServiceConfig[] {
+  const config = loadServicesConfig();
+  return [...config.services.core, ...config.services.mcp];
+}
+
+/**
+ * 获取特定类型的服务
+ */
+export function getServicesByType(type: 'core' | 'mcp'): ServiceConfig[] {
+  const config = loadServicesConfig();
+  return type === 'core' ? config.services.core : config.services.mcp;
+}
+
+/**
+ * 获取单个服务配置
+ */
+export function getServiceConfig(name: string): ServiceConfig | null {
+  const allServices = getAllServices();
+  return allServices.find(s => s.name === name) || null;
+}
+
+/**
+ * 获取服务名称列表（用于向后兼容）
+ */
+export function getServiceNames(type?: 'core' | 'mcp' | 'all'): string[] {
+  if (type === 'core') {
+    return getServicesByType('core').map(s => s.name);
+  } else if (type === 'mcp') {
+    return getServicesByType('mcp').map(s => s.name);
+  } else {
+    return getAllServices().map(s => s.name);
+  }
 }

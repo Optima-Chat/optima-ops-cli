@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getCurrentEnvironment, getCurrentEnvConfig, Environment } from '../../utils/config.js';
+import { getCurrentEnvironment, Environment, getAllServices, getServicesByType, getServiceConfig } from '../../utils/config.js';
 import { SSHClient } from '../../utils/ssh.js';
 import {
   isJsonOutput,
@@ -14,22 +14,29 @@ export const statusCommand = new Command('status')
   .description('查看容器状态')
   .option('--env <env>', '环境 (production/stage/development)')
   .option('--service <service>', '特定服务名称')
+  .option('--type <type>', '服务类型 (core/mcp/all)', 'all')
   .option('--json', 'JSON 格式输出')
   .action(async (options) => {
     try {
       const env: Environment = options.env || getCurrentEnvironment();
-      const envConfig = getCurrentEnvConfig();
-      const services = [...envConfig.services];
 
-      // 选择服务（如果未指定）
-      let targetServices: string[];
+      // 获取服务列表
+      let targetServices;
       if (options.service) {
-        if (!services.includes(options.service)) {
+        const serviceConfig = getServiceConfig(options.service);
+        if (!serviceConfig) {
           throw new Error(`未知服务: ${options.service}`);
         }
-        targetServices = [options.service];
+        targetServices = [serviceConfig];
       } else {
-        targetServices = services;
+        // 根据类型过滤
+        if (options.type === 'core') {
+          targetServices = getServicesByType('core');
+        } else if (options.type === 'mcp') {
+          targetServices = getServicesByType('mcp');
+        } else {
+          targetServices = getAllServices();
+        }
       }
 
       if (!isJsonOutput()) {
@@ -41,15 +48,15 @@ export const statusCommand = new Command('status')
       await ssh.connect();
 
       try {
-        // 获取容器状态
-        const containerNames = targetServices.map(
-          service => `optima-${service}-${env === 'production' ? 'prod' : env}`
-        );
+        // 获取容器名称
+        const containerNames = targetServices.map(s => s.container);
 
         const results: any[] = [];
 
-        for (const containerName of containerNames) {
-          const service = targetServices[containerNames.indexOf(containerName)];
+        for (let i = 0; i < containerNames.length; i++) {
+          const containerName = containerNames[i];
+          const serviceConfig = targetServices[i];
+          const service = serviceConfig.name;
 
           if (!isJsonOutput()) {
             process.stdout.write(chalk.white(`检查 ${service}... `));
