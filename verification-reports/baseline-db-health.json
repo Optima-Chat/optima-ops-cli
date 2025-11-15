@@ -1,0 +1,37 @@
+
+> @optima-chat/ops-cli@1.0.0 dev
+> tsx src/index.ts db health --database optima_auth --json
+
+{
+  "success": true,
+  "data": {
+    "environment": "production",
+    "database": "optima_auth",
+    "status": "critical",
+    "metrics": {
+      "connections": {
+        "current": "28",
+        "max": 80,
+        "percentage": "35.00",
+        "status": "ok"
+      },
+      "cache_hit_ratio": {
+        "value": "100.00",
+        "target": 99,
+        "status": "ok"
+      },
+      "slow_queries": {
+        "count": 0,
+        "threshold": "5s"
+      },
+      "bloat": {
+        "average_pct": null,
+        "affected_tables": 7,
+        "status": "critical"
+      }
+    },
+    "issues": [
+      "表膨胀率较高: 平均 NaN%"
+    ]
+  }
+}
