@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { getRunLogs, getWorkflowRuns, getServiceRepo } from '../../utils/github.js';
+import { getRunLogs, getWorkflowRuns, getServiceRepo, getDeployWorkflow } from '../../utils/github.js';
 import { handleError } from '../../utils/error.js';
 import { selectPrompt } from '../../utils/prompt.js';
 
@@ -15,8 +15,14 @@ export const logsCommand = new Command('logs')
 
       // 如果未指定 run-id，交互式选择或使用最新
       if (!runId) {
+        const workflow = await getDeployWorkflow(repo);
+
+        if (!workflow) {
+          throw new Error('未找到部署 workflow');
+        }
+
         const runs = await getWorkflowRuns(repo, {
-          workflow: 'deploy.yml',
+          workflow,
           branch: 'main',
           limit: 10,
         });

@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getCurrentEnvironment, Environment } from '../../utils/config.js';
-import { watchRun, getServiceRepo } from '../../utils/github.js';
+import { watchRun, getServiceRepo, getDeployWorkflow } from '../../utils/github.js';
 import { handleError } from '../../utils/error.js';
 
 export const watchCommand = new Command('watch')
@@ -19,8 +19,14 @@ export const watchCommand = new Command('watch')
       if (!runId) {
         // 如果未指定 run-id，需要获取最新的
         const { getWorkflowRuns } = await import('../../utils/github.js');
+        const workflow = await getDeployWorkflow(repo);
+
+        if (!workflow) {
+          throw new Error('未找到部署 workflow');
+        }
+
         const runs = await getWorkflowRuns(repo, {
-          workflow: 'deploy.yml',
+          workflow,
           branch: 'main',
           limit: 1,
         });
