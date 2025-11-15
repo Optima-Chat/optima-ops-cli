@@ -13,6 +13,7 @@ const READONLY_COMMANDS = [
   'docker stats',
   'docker network',
   'docker images',
+  'docker exec',
   'ip ',
   'ip-',
   'df -h',
