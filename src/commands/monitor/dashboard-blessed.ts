@@ -4,13 +4,14 @@ import { BlessedDashboard } from '../../ui/blessed/BlessedDashboard.js';
 import { getAllServices } from '../../utils/services-loader.js';
 import { getCoreServices } from '../../utils/services-loader.js';
 import { ECSService } from '../../services/aws/ecs-service.js';
+import { ALBService } from '../../services/aws/alb-service.js';
 import { SSHClient } from '../../utils/ssh.js';
 import { getCurrentEnvConfig } from '../../utils/config.js';
 import axios from 'axios';
 import type { ServiceHealth, BlueGreenStatus, DockerStats } from '../../types/monitor.js';
 
-export const dashboardCommand = new Command('dashboard')
-  .description('Launch interactive TUI monitoring dashboard (blessed-based, no flicker)')
+export const dashboardBlessedCommand = new Command('dashboard-blessed')
+  .description('Launch blessed-based TUI monitoring dashboard (no flicker)')
   .option('--env <environment>', 'Environment to monitor', 'production')
   .option('--interval <seconds>', 'Refresh interval in seconds', '5')
   .action(async (options) => {
