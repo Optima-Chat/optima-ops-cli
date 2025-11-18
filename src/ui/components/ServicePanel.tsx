@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
 import type { ServiceHealth } from '../../types/monitor.js';
+import { useTerminalSize } from '../hooks/useTerminalSize.js';
 
 export interface ServicePanelProps {
   services: ServiceHealth[];
@@ -12,6 +13,14 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
   services,
   loading,
 }) => {
+  const { width } = useTerminalSize();
+
+  // 动态计算列宽（根据可用宽度）
+  const availableWidth = Math.max(width - 10, 40); // 减去边框和 padding
+  const nameWidth = Math.min(Math.max(Math.floor(availableWidth * 0.6), 18), 30);
+  const statusWidth = 3;
+  const timeWidth = 8;
+
   if (loading) {
     return (
       <Box borderStyle="round" paddingX={2} paddingY={1}>
@@ -41,11 +50,22 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
           ? 'yellow'
           : 'red';
 
+    // 截断服务名（如果过长）
+    const displayName =
+      svc.name.length > nameWidth
+        ? svc.name.substring(0, nameWidth - 1) + '…'
+        : svc.name.padEnd(nameWidth);
+
+    const displayTime =
+      svc.responseTime > 0
+        ? (svc.responseTime + 'ms').padEnd(timeWidth)
+        : '-'.padEnd(timeWidth);
+
     return (
       <Box key={svc.name}>
-        <Text>{svc.name.padEnd(22)}</Text>
-        <Text color={statusColor}>{statusIcon.padEnd(3)}</Text>
-        <Text dimColor>{svc.responseTime > 0 ? svc.responseTime + 'ms' : '-'.padEnd(6)}</Text>
+        <Text>{displayName}</Text>
+        <Text color={statusColor}>{statusIcon.padEnd(statusWidth)}</Text>
+        <Text dimColor>{displayTime}</Text>
       </Box>
     );
   };
@@ -63,7 +83,8 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
         </Text>
         <Box marginTop={1}>
           <Text dimColor>
-            {'服务'.padEnd(22)} {'状态'.padEnd(3)} {'响应时间'}
+            {'服务'.padEnd(nameWidth)} {'状态'.padEnd(statusWidth)}{' '}
+            {'响应时间'.padEnd(timeWidth)}
           </Text>
         </Box>
         {coreServices.map(renderService)}
@@ -76,7 +97,8 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
         </Text>
         <Box marginTop={1}>
           <Text dimColor>
-            {'服务'.padEnd(22)} {'状态'.padEnd(3)} {'响应时间'}
+            {'服务'.padEnd(nameWidth)} {'状态'.padEnd(statusWidth)}{' '}
+            {'响应时间'.padEnd(timeWidth)}
           </Text>
         </Box>
         {mcpServices.map(renderService)}
