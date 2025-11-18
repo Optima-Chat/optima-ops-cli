@@ -76,7 +76,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   return (
     <Box flexDirection="column" padding={1}>
       {/* Header - 固定高度 */}
-      <Header environment={environment} />
+      <Header environment={environment} refreshInterval={refreshInterval} />
 
       {useTwoColumns ? (
         // 两列布局（大屏幕）
