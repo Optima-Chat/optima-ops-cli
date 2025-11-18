@@ -10,7 +10,7 @@ const servicesConfigPath = join(projectRoot, 'services-config.json');
 
 // ============== 类型定义 ==============
 
-export type Environment = 'production' | 'stage' | 'development';
+export type Environment = 'production' | 'stage' | 'shared' | 'development';
 
 interface EC2Config {
   host: string;
@@ -23,6 +23,7 @@ interface ConfigSchema {
   ec2: {
     production: EC2Config;
     stage: EC2Config;
+    shared: EC2Config;
     development: EC2Config;
   };
   aws: {
@@ -52,6 +53,15 @@ export const ENV_CONFIG = {
     githubRunner: 'optima-stage-host',
     services: ['user-auth', 'mcp-host', 'commerce-backend', 'agentic-chat'],
   },
+  shared: {
+    ec2Host: '13.251.46.219',
+    ec2Environment: 'shared',
+    rdsHost: '',
+    albDnsName: '',
+    dockerNetwork: 'optima-shared',
+    githubRunner: 'optima-shared-host',
+    services: [],
+  },
   development: {
     ec2Host: 'ec2-dev.optima.shop',
     ec2Environment: 'development',
@@ -77,6 +87,11 @@ const config = new Conf<ConfigSchema>({
       },
       stage: {
         host: 'ec2-stage.optima.shop',
+        user: 'ec2-user',
+        keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
+      },
+      shared: {
+        host: '13.251.46.219',
         user: 'ec2-user',
         keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
       },

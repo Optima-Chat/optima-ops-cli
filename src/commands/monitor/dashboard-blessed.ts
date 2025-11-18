@@ -210,10 +210,15 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
 
       // 获取单个环境的 Docker 数据
       const fetchDockerForEnv = async (
-        env: 'production' | 'stage',
+        env: 'production' | 'stage' | 'shared',
       ): Promise<import('../../types/monitor.js').ContainerStats[]> => {
         try {
-          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
+          const hostMap = {
+            production: 'ec2-prod.optima.shop',
+            stage: 'ec2-stage.optima.shop',
+            shared: '13.251.46.219',
+          };
+          const host = hostMap[env];
 
           const stdout = await executeSSHCommand(
             host,
@@ -257,21 +262,28 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
 
       // 获取所有环境的 Docker 数据
       const fetchDocker = async (): Promise<DockerStats[]> => {
-        const [prodStats, stageStats] = await Promise.all([
+        const [prodStats, stageStats, sharedStats] = await Promise.all([
           fetchDockerForEnv('production'),
           fetchDockerForEnv('stage'),
+          fetchDockerForEnv('shared'),
         ]);
 
         return [
           { environment: 'production', stats: prodStats },
           { environment: 'stage', stats: stageStats },
+          { environment: 'shared', stats: sharedStats },
         ];
       };
 
       // 获取单个环境的 EC2 资源
-      const fetchEC2ForEnv = async (env: 'production' | 'stage'): Promise<EC2Stats | null> => {
+      const fetchEC2ForEnv = async (env: 'production' | 'stage' | 'shared'): Promise<EC2Stats | null> => {
         try {
-          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
+          const hostMap = {
+            production: 'ec2-prod.optima.shop',
+            stage: 'ec2-stage.optima.shop',
+            shared: '13.251.46.219',
+          };
+          const host = hostMap[env];
 
           // 获取内存信息
           const memResult = await executeSSHCommand(host, 'free -m | grep Mem');
@@ -330,12 +342,13 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
 
       // 获取所有环境的 EC2 数据
       const fetchEC2 = async (): Promise<EC2Stats[]> => {
-        const [prodStats, stageStats] = await Promise.all([
+        const [prodStats, stageStats, sharedStats] = await Promise.all([
           fetchEC2ForEnv('production'),
           fetchEC2ForEnv('stage'),
+          fetchEC2ForEnv('shared'),
         ]);
 
-        return [prodStats, stageStats].filter((s): s is EC2Stats => s !== null);
+        return [prodStats, stageStats, sharedStats].filter((s): s is EC2Stats => s !== null);
       };
 
       // 定期刷新数据

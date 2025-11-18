@@ -345,7 +345,8 @@ export class BlessedDashboard {
       let content = '';
 
       (ec2Stats as EC2Stats[]).forEach((stat) => {
-        const envLabel = stat.environment === 'production' ? 'Production' : 'Stage';
+        const envLabels = { production: 'Production', stage: 'Stage', shared: 'Shared' };
+        const envLabel = envLabels[stat.environment] || stat.environment;
         content += ` {cyan-fg}${envLabel}{/cyan-fg}\n`;
         content += ` {bold}实例类型{/bold}: ${stat.instanceType}\n`;
         content += ` {bold}实例 ID{/bold}:  ${stat.instanceId}\n`;
@@ -410,7 +411,8 @@ export class BlessedDashboard {
 
     // 按环境分组显示
     stats.forEach((envData) => {
-      const envLabel = envData.environment === 'production' ? 'Production' : 'Stage';
+      const envLabels = { production: 'Production', stage: 'Stage', shared: 'Shared' };
+      const envLabel = envLabels[envData.environment] || envData.environment;
       content += ` {cyan-fg}${envLabel}{/cyan-fg} (${envData.stats.length} 容器)\n`;
       content += ' {bold}容器                             CPU    内存       网络{/bold}\n';
 

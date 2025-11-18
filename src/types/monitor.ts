@@ -49,7 +49,7 @@ export interface ContainerStats {
  * Docker 容器资源使用（多环境）
  */
 export interface DockerStats {
-  environment: 'production' | 'stage';
+  environment: 'production' | 'stage' | 'shared';
   stats: ContainerStats[];
 }
 
@@ -67,7 +67,7 @@ export interface DiskStats {
  * EC2 资源使用
  */
 export interface EC2Stats {
-  environment: 'production' | 'stage';
+  environment: 'production' | 'stage' | 'shared';
   instanceId: string;
   instanceType: string;
   cpuUsage?: number;
