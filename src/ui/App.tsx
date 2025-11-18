@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { useApp, useInput } from 'ink';
+import { DashboardLayout } from './layouts/DashboardLayout.js';
 
 export interface AppProps {
   environment: string;
@@ -13,27 +14,8 @@ export const App: React.FC<AppProps> = ({ environment, interval }) => {
     if (input === 'q') {
       exit();
     }
+    // TODO: 实现其他快捷键 (d, r, t, l)
   });
 
-  return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="round" borderColor="cyan" padding={1}>
-        <Text bold color="cyan">
-          Optima {environment.toUpperCase()} Monitor
-        </Text>
-      </Box>
-
-      <Box marginTop={1} padding={1}>
-        <Text>
-          刷新间隔: <Text bold>{interval}秒</Text>
-        </Text>
-      </Box>
-
-      <Box marginTop={1} padding={1}>
-        <Text dimColor>
-          按 <Text bold>q</Text> 退出
-        </Text>
-      </Box>
-    </Box>
-  );
+  return <DashboardLayout environment={environment} refreshInterval={interval} />;
 };
