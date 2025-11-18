@@ -15,6 +15,7 @@ export class BlessedDashboard {
   private keyHintsBox: blessed.Widgets.BoxElement;
   private environment: string;
   private refreshInterval: number;
+  private timeInterval: NodeJS.Timeout | null = null;
 
   constructor(options: BlessedDashboardOptions) {
     this.environment = options.environment;
@@ -36,10 +37,11 @@ export class BlessedDashboard {
 
     // 绑定退出键
     this.screen.key(['escape', 'q', 'C-c'], () => {
+      this.destroy();
       return process.exit(0);
     });
 
-    // 渲染初始界面
+    // 初始渲染
     this.screen.render();
   }
 
@@ -55,7 +57,6 @@ export class BlessedDashboard {
       tags: true,
       border: {
         type: 'line',
-        fg: 'cyan',
       },
       style: {
         border: {
@@ -64,7 +65,7 @@ export class BlessedDashboard {
       },
     });
 
-    // 更新时间显示（blessed 的 smartCSR 会自动优化，只更新变化的字符）
+    // 更新时间显示
     const updateTime = () => {
       const now = new Date();
       const year = now.getFullYear();
@@ -75,17 +76,14 @@ export class BlessedDashboard {
       const second = String(now.getSeconds()).padStart(2, '0');
       const timeStr = `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 
-      // 使用固定宽度确保布局稳定
-      const title = `{bold}{cyan-fg}⚡ Optima ${envCapitalized} Monitor{/cyan-fg}{/bold}`;
-      const info = `{#888-fg}刷新: ${this.refreshInterval}s | ${timeStr}{/#888-fg}`;
-      const padding = ' '.repeat(Math.max(0, this.screen.width - title.length - info.length - 10));
-
-      box.setContent(`${title}${padding}${info}`);
+      // 简单布局，避免标签长度计算问题
+      const content = ` ⚡ Optima ${envCapitalized} Monitor     刷新: ${this.refreshInterval}s | ${timeStr}`;
+      box.setContent(content);
       this.screen.render();
     };
 
     updateTime();
-    setInterval(updateTime, 1000); // 每秒更新时间
+    this.timeInterval = setInterval(updateTime, 1000);
 
     return box;
   }
@@ -96,10 +94,9 @@ export class BlessedDashboard {
       top: 3,
       left: 0,
       width: '50%',
-      height: 15,
+      height: 20, // 增加到 20 行
       label: ' 🏥 服务健康 ',
-      content: '{#888-fg}加载中...{/#888-fg}',
-      tags: true,
+      content: ' 加载中...',
       border: {
         type: 'line',
       },
@@ -117,13 +114,12 @@ export class BlessedDashboard {
   private createBlueGreenBox(): blessed.Widgets.BoxElement {
     return blessed.box({
       parent: this.screen,
-      top: 18,
+      top: 23,
       left: 0,
       width: '50%',
-      height: '100%-21',
+      height: '100%-26', // 剩余空间
       label: ' 🔵 蓝绿部署 ',
-      content: '{#888-fg}加载中...{/#888-fg}',
-      tags: true,
+      content: ' 加载中...',
       border: {
         type: 'line',
       },
@@ -146,8 +142,7 @@ export class BlessedDashboard {
       width: '50%',
       height: '100%-6',
       label: ' 🐳 Docker 资源 ',
-      content: '{#888-fg}加载中...{/#888-fg}',
-      tags: true,
+      content: ' 加载中...',
       border: {
         type: 'line',
       },
@@ -169,8 +164,7 @@ export class BlessedDashboard {
       left: 0,
       width: '100%',
       height: 3,
-      content: '{#888-fg}快捷键: {/}{bold}q{/bold}=退出 {bold}d{/bold}=部署 {bold}r{/bold}=回滚 {bold}t{/bold}=调整流量 {bold}l{/bold}=日志',
-      tags: true,
+      content: ' 快捷键: [q]=退出 [d]=部署 [r]=回滚 [t]=调整流量 [l]=日志',
       border: {
         type: 'single',
       },
@@ -184,7 +178,13 @@ export class BlessedDashboard {
 
   public updateServices(services: ServiceHealth[], loading: boolean): void {
     if (loading) {
-      this.serviceBox.setContent('{#888-fg}加载服务状态...{/#888-fg}');
+      this.serviceBox.setContent(' 加载服务状态...');
+      this.screen.render();
+      return;
+    }
+
+    if (services.length === 0) {
+      this.serviceBox.setContent(' 无服务数据');
       this.screen.render();
       return;
     }
@@ -192,28 +192,28 @@ export class BlessedDashboard {
     const coreServices = services.filter((s) => s.type === 'core');
     const mcpServices = services.filter((s) => s.type === 'mcp');
 
-    let content = `{bold}{cyan-fg}核心服务 (${coreServices.length}){/cyan-fg}{/bold}\n`;
-    content += '{#888-fg}服务                  状态  响应时间{/#888-fg}\n';
+    let content = ` 核心服务 (${coreServices.length})\n`;
+    content += ' 服务                  状态  响应时间\n';
 
     coreServices.forEach((svc) => {
       const icon = svc.health === 'healthy' ? '✓' : svc.health === 'degraded' ? '⚠' : '✗';
-      const color = svc.health === 'healthy' ? 'green' : svc.health === 'degraded' ? 'yellow' : 'red';
       const name = svc.name.padEnd(20);
       const time = svc.responseTime > 0 ? `${svc.responseTime}ms` : '-';
+      const statusLine = `${icon} `;
 
-      content += `${name} {${color}-fg}${icon}{/${color}-fg}    ${time}\n`;
+      content += ` ${name} ${statusLine} ${time}\n`;
     });
 
-    content += `\n{bold}{magenta-fg}MCP 工具 (${mcpServices.length}){/magenta-fg}{/bold}\n`;
-    content += '{#888-fg}服务                  状态  响应时间{/#888-fg}\n';
+    content += `\n MCP 工具 (${mcpServices.length})\n`;
+    content += ' 服务                  状态  响应时间\n';
 
     mcpServices.forEach((svc) => {
       const icon = svc.health === 'healthy' ? '✓' : svc.health === 'degraded' ? '⚠' : '✗';
-      const color = svc.health === 'healthy' ? 'green' : svc.health === 'degraded' ? 'yellow' : 'red';
       const name = svc.name.padEnd(20);
       const time = svc.responseTime > 0 ? `${svc.responseTime}ms` : '-';
+      const statusLine = `${icon} `;
 
-      content += `${name} {${color}-fg}${icon}{/${color}-fg}    ${time}\n`;
+      content += ` ${name} ${statusLine} ${time}\n`;
     });
 
     this.serviceBox.setContent(content);
@@ -222,12 +222,18 @@ export class BlessedDashboard {
 
   public updateBlueGreen(statuses: BlueGreenStatus[], loading: boolean): void {
     if (loading) {
-      this.blueGreenBox.setContent('{#888-fg}加载蓝绿部署状态...{/#888-fg}');
+      this.blueGreenBox.setContent(' 加载蓝绿部署状态...');
       this.screen.render();
       return;
     }
 
-    let content = '{#888-fg}服务              Blue任务  Green任务  流量分配{/#888-fg}\n';
+    if (statuses.length === 0) {
+      this.blueGreenBox.setContent(' 无蓝绿部署数据（可能未使用 ECS）');
+      this.screen.render();
+      return;
+    }
+
+    let content = ' 服务              Blue任务  Green任务  流量分配\n';
 
     statuses.forEach((status) => {
       const name = status.service.padEnd(16);
@@ -235,7 +241,7 @@ export class BlessedDashboard {
       const green = `${status.green.running}/${status.green.desired}`.padEnd(10);
       const traffic = `B:${status.traffic.blue}% G:${status.traffic.green}%`;
 
-      content += `${name} {blue-fg}${blue}{/blue-fg} {green-fg}${green}{/green-fg} ${traffic}\n`;
+      content += ` ${name} ${blue} ${green} ${traffic}\n`;
     });
 
     this.blueGreenBox.setContent(content);
@@ -244,7 +250,13 @@ export class BlessedDashboard {
 
   public updateDocker(stats: DockerStats[], loading: boolean): void {
     if (loading) {
-      this.dockerBox.setContent('{#888-fg}加载 Docker 资源...{/#888-fg}');
+      this.dockerBox.setContent(' 加载 Docker 资源...');
+      this.screen.render();
+      return;
+    }
+
+    if (stats.length === 0) {
+      this.dockerBox.setContent(' 无 Docker 数据');
       this.screen.render();
       return;
     }
@@ -258,18 +270,15 @@ export class BlessedDashboard {
       return value.toFixed(2) + ' ' + sizes[i];
     };
 
-    let content = '{#888-fg}容器                          CPU      内存                 网络 Rx/Tx{/#888-fg}\n';
+    let content = ' 容器                          CPU      内存                 网络 Rx/Tx\n';
 
     stats.forEach((stat) => {
       const container = stat.container.substring(0, 28).padEnd(30);
       const cpu = stat.cpuPercent.toFixed(1) + '%';
-      const cpuColor = stat.cpuPercent > 80 ? 'red' : 'white';
       const mem = formatBytes(stat.memoryUsed) + '/' + formatBytes(stat.memoryTotal);
-      const memPercent = (stat.memoryUsed / stat.memoryTotal) * 100;
-      const memColor = memPercent > 80 ? 'red' : 'white';
       const net = formatBytes(stat.networkRx) + '/' + formatBytes(stat.networkTx);
 
-      content += `${container} {${cpuColor}-fg}${cpu.padEnd(8)}{/${cpuColor}-fg} {${memColor}-fg}${mem.padEnd(20)}{/${memColor}-fg} {#888-fg}${net}{/#888-fg}\n`;
+      content += ` ${container} ${cpu.padEnd(8)} ${mem.padEnd(20)} ${net}\n`;
     });
 
     this.dockerBox.setContent(content);
@@ -277,6 +286,10 @@ export class BlessedDashboard {
   }
 
   public destroy(): void {
+    if (this.timeInterval) {
+      clearInterval(this.timeInterval);
+      this.timeInterval = null;
+    }
     this.screen.destroy();
   }
 }
