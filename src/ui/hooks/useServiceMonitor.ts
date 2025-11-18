@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ServiceHealth } from '../../types/monitor.js';
+import { getAllServices } from '../../utils/services-loader.js';
 import axios from 'axios';
 
 /**
@@ -14,18 +15,18 @@ export const useServiceMonitor = (
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 服务健康端点（从 services-config.json 获取更好）
-    const serviceEndpoints = [
-      { name: 'user-auth', url: 'https://auth.optima.shop/health' },
-      { name: 'mcp-host', url: 'https://mcp.optima.shop/health' },
-      { name: 'commerce-backend', url: 'https://api.optima.shop/health' },
-      { name: 'agentic-chat', url: 'https://ai.optima.shop/health' },
-    ];
+    // 从 services-config.json 加载所有服务
+    const allServices = getAllServices();
+    const serviceEndpoints = allServices.map((svc) => ({
+      name: svc.name,
+      url: svc.healthEndpoint,
+      type: svc.type,
+    }));
 
     const fetchData = async () => {
       try {
         const results = await Promise.all(
-          serviceEndpoints.map(async ({ name, url }) => {
+          serviceEndpoints.map(async ({ name, url, type }) => {
             try {
               const startTime = Date.now();
               const response = await axios.get(url, { timeout: 5000 });
@@ -33,6 +34,7 @@ export const useServiceMonitor = (
 
               return {
                 name,
+                type,
                 health: response.status === 200 ? 'healthy' : 'degraded',
                 responseTime,
                 containerStatus: 'running',
@@ -40,6 +42,7 @@ export const useServiceMonitor = (
             } catch (err) {
               return {
                 name,
+                type,
                 health: 'unhealthy',
                 responseTime: 0,
                 containerStatus: 'unknown',

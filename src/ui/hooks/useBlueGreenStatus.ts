@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ECSService } from '../../services/aws/ecs-service.js';
 import { ALBService } from '../../services/aws/alb-service.js';
+import { getCoreServices } from '../../utils/services-loader.js';
 import type { BlueGreenStatus } from '../../types/monitor.js';
 
 /**
- * Hook: 获取蓝绿部署状态
+ * Hook: 获取蓝绿部署状态（仅核心服务）
  */
 export const useBlueGreenStatus = (
   environment: string,
@@ -18,13 +19,9 @@ export const useBlueGreenStatus = (
     const ecsService = new ECSService();
     const albService = new ALBService();
 
-    // 定义服务配置（从 services-config.json 获取更好，这里先硬编码）
-    const services = [
-      'user-auth',
-      'mcp-host',
-      'commerce-backend',
-      'agentic-chat',
-    ];
+    // 从 services-config.json 加载核心服务（蓝绿部署仅用于核心服务）
+    const coreServices = getCoreServices();
+    const services = coreServices.map((s) => s.name);
 
     const fetchData = async () => {
       try {

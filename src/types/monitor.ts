@@ -8,6 +8,7 @@ import type { TrafficSplit } from '../services/aws/alb-service.js';
  */
 export interface ServiceHealth {
   name: string;
+  type: 'core' | 'mcp';
   health: 'healthy' | 'degraded' | 'unhealthy';
   responseTime: number; // ms
   containerStatus: string;

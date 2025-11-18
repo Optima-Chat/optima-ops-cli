@@ -23,42 +23,64 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
     );
   }
 
+  // 分组：Core 和 MCP
+  const coreServices = services.filter((s) => s.type === 'core');
+  const mcpServices = services.filter((s) => s.type === 'mcp');
+
+  const renderService = (svc: ServiceHealth) => {
+    const statusIcon =
+      svc.health === 'healthy'
+        ? '✓'
+        : svc.health === 'degraded'
+          ? '⚠'
+          : '✗';
+    const statusColor =
+      svc.health === 'healthy'
+        ? 'green'
+        : svc.health === 'degraded'
+          ? 'yellow'
+          : 'red';
+
+    return (
+      <Box key={svc.name}>
+        <Text>{svc.name.padEnd(22)}</Text>
+        <Text color={statusColor}>{statusIcon.padEnd(3)}</Text>
+        <Text dimColor>{svc.responseTime > 0 ? svc.responseTime + 'ms' : '-'.padEnd(6)}</Text>
+      </Box>
+    );
+  };
+
   return (
     <Box flexDirection="column" borderStyle="round" paddingX={2} paddingY={1}>
       <Text bold color="yellow">
         🏥 服务健康 ({services.length})
       </Text>
 
-      <Box marginTop={1}>
-        <Text dimColor>
-          {'服务名称'.padEnd(20)} {'状态'.padEnd(10)} {'响应时间'.padEnd(12)}{' '}
-          {'容器'.padEnd(12)}
+      {/* Core Services */}
+      <Box marginTop={1} flexDirection="column">
+        <Text bold color="cyan">
+          核心服务 ({coreServices.length})
         </Text>
+        <Box marginTop={1}>
+          <Text dimColor>
+            {'服务'.padEnd(22)} {'状态'.padEnd(3)} {'响应时间'}
+          </Text>
+        </Box>
+        {coreServices.map(renderService)}
       </Box>
 
-      {services.map((svc) => (
-        <Box key={svc.name}>
-          <Text>{svc.name.padEnd(20)}</Text>
-          <Text
-            color={
-              svc.health === 'healthy'
-                ? 'green'
-                : svc.health === 'degraded'
-                  ? 'yellow'
-                  : 'red'
-            }
-          >
-            {(svc.health === 'healthy'
-              ? '✓ 正常'
-              : svc.health === 'degraded'
-                ? '⚠ 降级'
-                : '✗ 异常'
-            ).padEnd(10)}
+      {/* MCP Services */}
+      <Box marginTop={1} flexDirection="column">
+        <Text bold color="magenta">
+          MCP 工具 ({mcpServices.length})
+        </Text>
+        <Box marginTop={1}>
+          <Text dimColor>
+            {'服务'.padEnd(22)} {'状态'.padEnd(3)} {'响应时间'}
           </Text>
-          <Text>{`${svc.responseTime}ms`.padEnd(12)}</Text>
-          <Text dimColor>{svc.containerStatus.padEnd(12)}</Text>
         </Box>
-      ))}
+        {mcpServices.map(renderService)}
+      </Box>
     </Box>
   );
 };
