@@ -46,13 +46,12 @@ export class BlessedDashboard {
   private createHeader(): blessed.Widgets.BoxElement {
     const envCapitalized = this.environment.charAt(0).toUpperCase() + this.environment.slice(1);
 
-    return blessed.box({
+    const box = blessed.box({
       parent: this.screen,
       top: 0,
       left: 0,
       width: '100%',
       height: 3,
-      content: `{bold}{cyan-fg}⚡ Optima ${envCapitalized} Monitor{/cyan-fg}{/bold}                    {#888-fg}刷新间隔: ${this.refreshInterval}s{/#888-fg}`,
       tags: true,
       border: {
         type: 'line',
@@ -64,6 +63,33 @@ export class BlessedDashboard {
         },
       },
     });
+
+    // 更新时间显示（blessed 的 smartCSR 会自动优化，只更新变化的字符）
+    const updateTime = () => {
+      const now = new Date();
+      const timeStr = now.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+
+      // 使用固定宽度确保布局稳定
+      const title = `{bold}{cyan-fg}⚡ Optima ${envCapitalized} Monitor{/cyan-fg}{/bold}`;
+      const info = `{#888-fg}刷新: ${this.refreshInterval}s | ${timeStr}{/#888-fg}`;
+      const padding = ' '.repeat(Math.max(0, this.screen.width - title.length - info.length - 10));
+
+      box.setContent(`${title}${padding}${info}`);
+      this.screen.render();
+    };
+
+    updateTime();
+    setInterval(updateTime, 1000); // 每秒更新时间
+
+    return box;
   }
 
   private createServiceBox(): blessed.Widgets.BoxElement {
@@ -72,7 +98,7 @@ export class BlessedDashboard {
       top: 3,
       left: 0,
       width: '50%',
-      height: '40%',
+      height: 15,
       label: ' 🏥 服务健康 ',
       content: '{#888-fg}加载中...{/#888-fg}',
       tags: true,
@@ -82,7 +108,7 @@ export class BlessedDashboard {
       scrollable: true,
       alwaysScroll: true,
       scrollbar: {
-        ch: ' ',
+        ch: '█',
         style: {
           bg: 'blue',
         },
@@ -93,10 +119,10 @@ export class BlessedDashboard {
   private createBlueGreenBox(): blessed.Widgets.BoxElement {
     return blessed.box({
       parent: this.screen,
-      top: '43%',
+      top: 18,
       left: 0,
       width: '50%',
-      height: '50%-3',
+      height: '100%-21',
       label: ' 🔵 蓝绿部署 ',
       content: '{#888-fg}加载中...{/#888-fg}',
       tags: true,
@@ -105,6 +131,12 @@ export class BlessedDashboard {
       },
       scrollable: true,
       alwaysScroll: true,
+      scrollbar: {
+        ch: '█',
+        style: {
+          bg: 'blue',
+        },
+      },
     });
   }
 
@@ -114,7 +146,7 @@ export class BlessedDashboard {
       top: 3,
       left: '50%',
       width: '50%',
-      height: '90%-3',
+      height: '100%-6',
       label: ' 🐳 Docker 资源 ',
       content: '{#888-fg}加载中...{/#888-fg}',
       tags: true,
@@ -124,7 +156,7 @@ export class BlessedDashboard {
       scrollable: true,
       alwaysScroll: true,
       scrollbar: {
-        ch: ' ',
+        ch: '█',
         style: {
           bg: 'blue',
         },
