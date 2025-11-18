@@ -24,41 +24,70 @@ export const dashboardCommand = new Command('dashboard')
         refreshInterval,
       });
 
-      // 数据获取函数
+      // 获取单个环境的健康状态
+      const fetchEnvironmentHealth = async (
+        healthEndpoint: string,
+      ): Promise<import('../../types/monitor.js').EnvironmentHealth> => {
+        try {
+          const startTime = Date.now();
+          const response = await axios.get(healthEndpoint, {
+            timeout: 3000,
+            validateStatus: (status) => status < 500,
+          });
+          const responseTime = Date.now() - startTime;
+
+          // 200 和 404 为健康，307 等重定向为不健康
+          const health: 'healthy' | 'degraded' | 'unhealthy' =
+            response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
+
+          return {
+            health,
+            responseTime,
+            containerStatus: health === 'healthy' ? 'running' : 'stopped',
+          };
+        } catch (err) {
+          return {
+            health: 'unhealthy',
+            responseTime: 0,
+            containerStatus: 'unknown',
+            error: (err as Error).message,
+          };
+        }
+      };
+
+      // 数据获取函数（同时获取 prod 和 stage）
       const fetchServices = async (): Promise<ServiceHealth[]> => {
         const allServices = getAllServices();
         const results = await Promise.all(
           allServices.map(async (svc) => {
-            try {
-              const startTime = Date.now();
-              const response = await axios.get(svc.healthEndpoint, {
-                timeout: 3000,
-                validateStatus: (status) => status < 500,
-              });
-              const responseTime = Date.now() - startTime;
+            // prod 环境 URL
+            const prodUrl = svc.healthEndpoint;
 
-              const health: 'healthy' | 'degraded' | 'unhealthy' =
-                response.status === 200 || response.status === 404
-                  ? 'healthy'
-                  : 'unhealthy';
+            // stage 环境 URL（替换域名）
+            const stageUrl = prodUrl
+              .replace('auth.optima.shop', 'auth-stage.optima.shop')
+              .replace('mcp.optima.shop', 'mcp-stage.optima.shop')
+              .replace('api.optima.shop', 'api-stage.optima.shop')
+              .replace('ai.optima.shop', 'ai-stage.optima.shop')
+              .replace('mcp-comfy.optima.shop', 'mcp-comfy-stage.optima.shop')
+              .replace('mcp-fetch.optima.shop', 'mcp-fetch-stage.optima.shop')
+              .replace('mcp-research.optima.shop', 'mcp-research-stage.optima.shop')
+              .replace('mcp-shopify.optima.shop', 'mcp-shopify-stage.optima.shop')
+              .replace('mcp-commerce.optima.shop', 'mcp-commerce-stage.optima.shop')
+              .replace('mcp-ads.optima.shop', 'mcp-ads-stage.optima.shop');
 
-              return {
-                name: svc.name,
-                type: svc.type,
-                health,
-                responseTime,
-                containerStatus: 'running',
-              } as ServiceHealth;
-            } catch (err) {
-              return {
-                name: svc.name,
-                type: svc.type,
-                health: 'unhealthy',
-                responseTime: 0,
-                containerStatus: 'unknown',
-                error: (err as Error).message,
-              } as ServiceHealth;
-            }
+            // 并行获取两个环境的状态
+            const [prod, stage] = await Promise.all([
+              fetchEnvironmentHealth(prodUrl),
+              fetchEnvironmentHealth(stageUrl),
+            ]);
+
+            return {
+              name: svc.name,
+              type: svc.type,
+              prod,
+              stage,
+            } as ServiceHealth;
           }),
         );
         return results;

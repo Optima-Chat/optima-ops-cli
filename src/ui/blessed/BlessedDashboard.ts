@@ -6,6 +6,20 @@ export interface BlessedDashboardOptions {
   refreshInterval: number;
 }
 
+// Catppuccin Mocha 配色方案
+const COLORS = {
+  green: '#a6e3a1',    // 成功/健康
+  red: '#f38ba8',      // 错误/不健康
+  yellow: '#f9e2af',   // 警告/降级
+  blue: '#89b4fa',     // 信息/标题
+  cyan: '#94e2d5',     // 边框
+  mauve: '#cba6f7',    // 强调
+  text: '#cdd6f4',     // 前景文字
+  subtext: '#a6adc8',  // 次要文字
+  surface: '#313244',  // 表面
+  base: '#1e1e2e',     // 背景
+};
+
 export class BlessedDashboard {
   private screen: blessed.Widgets.Screen;
   private headerBox: blessed.Widgets.BoxElement;
@@ -26,6 +40,10 @@ export class BlessedDashboard {
       smartCSR: true, // 智能光标定位，只更新变化部分
       title: `Optima ${this.environment} Monitor`,
       fullUnicode: true,
+      style: {
+        fg: COLORS.text,
+        bg: COLORS.base,
+      },
     });
 
     // 创建布局容器
@@ -59,8 +77,10 @@ export class BlessedDashboard {
         type: 'line',
       },
       style: {
+        fg: COLORS.text,
+        bg: COLORS.base,
         border: {
-          fg: 'cyan',
+          fg: COLORS.blue,
         },
       },
     });
@@ -71,6 +91,10 @@ export class BlessedDashboard {
       top: 0,
       left: 1,
       content: `Optima ${envCapitalized} Monitor`,
+      style: {
+        fg: COLORS.mauve,
+        bold: true,
+      },
     });
 
     // 右侧信息（固定位置）
@@ -79,6 +103,9 @@ export class BlessedDashboard {
       top: 0,
       right: 1,
       content: '',
+      style: {
+        fg: COLORS.subtext,
+      },
     });
 
     // 更新时间显示
@@ -111,15 +138,28 @@ export class BlessedDashboard {
       height: 20,
       label: ' 服务健康 ',
       content: ' 加载中...',
+      tags: true,
       border: {
         type: 'line',
+      },
+      style: {
+        fg: COLORS.text,
+        bg: COLORS.base,
+        border: {
+          fg: COLORS.cyan,
+        },
+        label: {
+          fg: COLORS.green,
+          bold: true,
+        },
       },
       scrollable: true,
       alwaysScroll: true,
       scrollbar: {
         ch: '█',
         style: {
-          bg: 'blue',
+          bg: COLORS.surface,
+          fg: COLORS.blue,
         },
       },
     });
@@ -137,12 +177,24 @@ export class BlessedDashboard {
       border: {
         type: 'line',
       },
+      style: {
+        fg: COLORS.text,
+        bg: COLORS.base,
+        border: {
+          fg: COLORS.cyan,
+        },
+        label: {
+          fg: COLORS.blue,
+          bold: true,
+        },
+      },
       scrollable: true,
       alwaysScroll: true,
       scrollbar: {
         ch: '█',
         style: {
-          bg: 'blue',
+          bg: COLORS.surface,
+          fg: COLORS.blue,
         },
       },
     });
@@ -160,12 +212,24 @@ export class BlessedDashboard {
       border: {
         type: 'line',
       },
+      style: {
+        fg: COLORS.text,
+        bg: COLORS.base,
+        border: {
+          fg: COLORS.cyan,
+        },
+        label: {
+          fg: COLORS.mauve,
+          bold: true,
+        },
+      },
       scrollable: true,
       alwaysScroll: true,
       scrollbar: {
         ch: '█',
         style: {
-          bg: 'blue',
+          bg: COLORS.surface,
+          fg: COLORS.blue,
         },
       },
     });
@@ -183,11 +247,24 @@ export class BlessedDashboard {
         type: 'single',
       },
       style: {
+        fg: COLORS.subtext,
+        bg: COLORS.base,
         border: {
-          fg: 'gray',
+          fg: COLORS.surface,
         },
       },
     });
+  }
+
+  // 辅助函数：生成带颜色的健康状态
+  private getColoredHealthIcon(health: 'healthy' | 'degraded' | 'unhealthy'): string {
+    if (health === 'healthy') {
+      return '{green-fg}✓{/green-fg}';
+    } else if (health === 'degraded') {
+      return '{yellow-fg}⚠{/yellow-fg}';
+    } else {
+      return '{red-fg}✗{/red-fg}';
+    }
   }
 
   public updateServices(services: ServiceHealth[], loading: boolean): void {
@@ -206,28 +283,42 @@ export class BlessedDashboard {
     const coreServices = services.filter((s) => s.type === 'core');
     const mcpServices = services.filter((s) => s.type === 'mcp');
 
-    let content = ` 核心服务 (${coreServices.length})\n`;
-    content += ' 服务                  状态  响应时间\n';
+    let content = ` {cyan-fg}核心服务{/cyan-fg} (${coreServices.length})\n`;
+    content += ' {bold}服务               Prod      Stage{/bold}\n';
 
     coreServices.forEach((svc) => {
-      const icon = svc.health === 'healthy' ? '✓' : svc.health === 'degraded' ? '⚠' : '✗';
-      const name = svc.name.padEnd(20);
-      const time = svc.responseTime > 0 ? `${svc.responseTime}ms` : '-';
-      const statusLine = `${icon} `;
+      const name = svc.name.padEnd(18);
 
-      content += ` ${name} ${statusLine} ${time}\n`;
+      // Prod 状态
+      const prodIcon = this.getColoredHealthIcon(svc.prod.health);
+      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
+      const prodStatus = `${prodIcon} ${prodTime.padEnd(6)}`;
+
+      // Stage 状态
+      const stageIcon = svc.stage ? this.getColoredHealthIcon(svc.stage.health) : '{gray-fg}-{/gray-fg}';
+      const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
+      const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
+
+      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
     });
 
-    content += `\n MCP 工具 (${mcpServices.length})\n`;
-    content += ' 服务                  状态  响应时间\n';
+    content += `\n {cyan-fg}MCP 工具{/cyan-fg} (${mcpServices.length})\n`;
+    content += ' {bold}服务               Prod      Stage{/bold}\n';
 
     mcpServices.forEach((svc) => {
-      const icon = svc.health === 'healthy' ? '✓' : svc.health === 'degraded' ? '⚠' : '✗';
-      const name = svc.name.padEnd(20);
-      const time = svc.responseTime > 0 ? `${svc.responseTime}ms` : '-';
-      const statusLine = `${icon} `;
+      const name = svc.name.padEnd(18);
 
-      content += ` ${name} ${statusLine} ${time}\n`;
+      // Prod 状态
+      const prodIcon = this.getColoredHealthIcon(svc.prod.health);
+      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
+      const prodStatus = `${prodIcon} ${prodTime.padEnd(6)}`;
+
+      // Stage 状态
+      const stageIcon = svc.stage ? this.getColoredHealthIcon(svc.stage.health) : '{gray-fg}-{/gray-fg}';
+      const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
+      const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
+
+      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
     });
 
     this.serviceBox.setContent(content);
