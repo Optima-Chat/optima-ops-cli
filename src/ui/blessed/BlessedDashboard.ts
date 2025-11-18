@@ -209,6 +209,7 @@ export class BlessedDashboard {
       height: '100%-6',
       label: ' Docker 资源 ',
       content: ' 加载中...',
+      tags: true,
       border: {
         type: 'line',
       },
@@ -367,23 +368,47 @@ export class BlessedDashboard {
     }
 
     const formatBytes = (bytes: number): string => {
-      if (bytes === 0) return '0 B';
+      if (bytes === 0) return '0';
       const k = 1024;
-      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const sizes = ['B', 'K', 'M', 'G'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       const value = bytes / Math.pow(k, i);
-      return value.toFixed(2) + ' ' + sizes[i];
+      return value.toFixed(1) + sizes[i];
     };
 
-    let content = ' 容器                          CPU      内存                 网络 Rx/Tx\n';
+    let content = '';
 
-    stats.forEach((stat) => {
-      const container = stat.container.substring(0, 28).padEnd(30);
-      const cpu = stat.cpuPercent.toFixed(1) + '%';
-      const mem = formatBytes(stat.memoryUsed) + '/' + formatBytes(stat.memoryTotal);
-      const net = formatBytes(stat.networkRx) + '/' + formatBytes(stat.networkTx);
+    // 按环境分组显示
+    stats.forEach((envData) => {
+      const envLabel = envData.environment === 'production' ? 'Production' : 'Stage';
+      content += ` {cyan-fg}${envLabel}{/cyan-fg} (${envData.stats.length} 容器)\n`;
+      content += ' {bold}容器                 CPU    内存       网络{/bold}\n';
 
-      content += ` ${container} ${cpu.padEnd(8)} ${mem.padEnd(20)} ${net}\n`;
+      envData.stats.forEach((stat) => {
+        const container = stat.container.substring(0, 20).padEnd(20);
+        const cpu = stat.cpuPercent.toFixed(1) + '%';
+        const memPercent =
+          stat.memoryTotal > 0
+            ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) + '%'
+            : '-';
+        const mem = `${formatBytes(stat.memoryUsed)}/${formatBytes(stat.memoryTotal)}`;
+        const net = `${formatBytes(stat.networkRx)}↓ ${formatBytes(stat.networkTx)}↑`;
+
+        // CPU 颜色
+        const cpuColor =
+          stat.cpuPercent > 80 ? 'red' : stat.cpuPercent > 50 ? 'yellow' : 'green';
+        const cpuDisplay = `{${cpuColor}-fg}${cpu.padEnd(6)}{/${cpuColor}-fg}`;
+
+        // 内存颜色
+        const memPercentNum =
+          stat.memoryTotal > 0 ? (stat.memoryUsed / stat.memoryTotal) * 100 : 0;
+        const memColor = memPercentNum > 80 ? 'red' : memPercentNum > 50 ? 'yellow' : 'green';
+        const memDisplay = `{${memColor}-fg}${mem.padEnd(10)}{/${memColor}-fg}`;
+
+        content += ` ${container} ${cpuDisplay} ${memDisplay} ${net}\n`;
+      });
+
+      content += '\n';
     });
 
     this.dockerBox.setContent(content);

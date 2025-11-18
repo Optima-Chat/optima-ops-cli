@@ -34,15 +34,23 @@ export interface BlueGreenStatus {
 }
 
 /**
- * Docker 容器资源使用
+ * 单个容器资源使用
  */
-export interface DockerStats {
+export interface ContainerStats {
   container: string;
   cpuPercent: number;
   memoryUsed: number; // bytes
   memoryTotal: number; // bytes
   networkRx: number; // bytes
   networkTx: number; // bytes
+}
+
+/**
+ * Docker 容器资源使用（多环境）
+ */
+export interface DockerStats {
+  environment: 'production' | 'stage';
+  stats: ContainerStats[];
 }
 
 /**

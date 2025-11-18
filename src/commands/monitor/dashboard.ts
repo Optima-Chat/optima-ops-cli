@@ -8,6 +8,7 @@ import { SSHClient } from '../../utils/ssh.js';
 import { getCurrentEnvConfig } from '../../utils/config.js';
 import axios from 'axios';
 import type { ServiceHealth, BlueGreenStatus, DockerStats } from '../../types/monitor.js';
+import { dashboardLogger } from '../../utils/dashboard-logger.js';
 
 export const dashboardCommand = new Command('dashboard')
   .description('Launch interactive TUI monitoring dashboard (blessed-based, no flicker)')
@@ -17,6 +18,13 @@ export const dashboardCommand = new Command('dashboard')
     try {
       const environment = options.env;
       const refreshInterval = parseInt(options.interval, 10);
+
+      // 日志信息
+      dashboardLogger.info('Dashboard started', {
+        environment,
+        refreshInterval,
+      });
+      console.log(`📊 Dashboard starting... (logs: ${dashboardLogger.getLogPath()})`);
 
       // 创建 blessed dashboard
       const dashboard = new BlessedDashboard({
@@ -119,69 +127,93 @@ export const dashboardCommand = new Command('dashboard')
         return results;
       };
 
-      const fetchDocker = async (): Promise<DockerStats[]> => {
-        const config = getCurrentEnvConfig();
-        const ssh = new SSHClient({
-          host: config.ec2Host,
-          username: 'ec2-user',
-          privateKeyPath: process.env.OPTIMA_SSH_KEY || '~/.ssh/optima-ec2-key',
-        });
+      // 辅助函数：解析内存单位
+      const parseMemory = (str: string): number => {
+        const match = str.match(/^([\d.]+)([A-Za-z]+)$/);
+        if (!match) return 0;
 
-        await ssh.connect();
+        const value = parseFloat(match[1] || '0');
+        const unit = match[2]?.toUpperCase();
 
-        const result = await ssh.executeCommand(
-          'docker stats --no-stream --format "{{.Container}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"',
-        );
-
-        await ssh.disconnect();
-
-        const parseMemory = (str: string): number => {
-          const match = str.match(/^([\d.]+)([A-Za-z]+)$/);
-          if (!match) return 0;
-
-          const value = parseFloat(match[1] || '0');
-          const unit = match[2]?.toUpperCase();
-
-          const multipliers: Record<string, number> = {
-            B: 1,
-            KB: 1024,
-            KIB: 1024,
-            MB: 1024 * 1024,
-            MIB: 1024 * 1024,
-            GB: 1024 * 1024 * 1024,
-            GIB: 1024 * 1024 * 1024,
-          };
-
-          return value * (multipliers[unit || 'B'] || 1);
+        const multipliers: Record<string, number> = {
+          B: 1,
+          KB: 1024,
+          KIB: 1024,
+          MB: 1024 * 1024,
+          MIB: 1024 * 1024,
+          GB: 1024 * 1024 * 1024,
+          GIB: 1024 * 1024 * 1024,
         };
 
-        const lines = result.stdout.trim().split('\n');
-        const parsed = lines
-          .map((line) => {
-            const [container, cpu, mem, net] = line.split('|');
+        return value * (multipliers[unit || 'B'] || 1);
+      };
 
-            if (!container) return null;
+      // 获取单个环境的 Docker 数据
+      const fetchDockerForEnv = async (
+        env: 'production' | 'stage',
+      ): Promise<import('../../types/monitor.js').ContainerStats[]> => {
+        try {
+          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
+          const ssh = new SSHClient({
+            host,
+            username: 'ec2-user',
+            privateKeyPath: process.env.OPTIMA_SSH_KEY || '~/.ssh/optima-ec2-key',
+          });
 
-            const cpuPercent = parseFloat(cpu?.replace('%', '') || '0');
-            const memParts = mem?.split(' / ') || [];
-            const memoryUsed = parseMemory(memParts[0] || '0');
-            const memoryTotal = parseMemory(memParts[1] || '0');
-            const netParts = net?.split(' / ') || [];
-            const networkRx = parseMemory(netParts[0] || '0');
-            const networkTx = parseMemory(netParts[1] || '0');
+          await ssh.connect();
 
-            return {
-              container,
-              cpuPercent,
-              memoryUsed,
-              memoryTotal,
-              networkRx,
-              networkTx,
-            };
-          })
-          .filter((s): s is DockerStats => s !== null);
+          const result = await ssh.executeCommand(
+            'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"',
+          );
 
-        return parsed;
+          await ssh.disconnect();
+
+          const lines = result.stdout.trim().split('\n');
+          const parsed = lines
+            .map((line) => {
+              const [container, cpu, mem, net] = line.split('|');
+
+              if (!container) return null;
+
+              const cpuPercent = parseFloat(cpu?.replace('%', '') || '0');
+              const memParts = mem?.split(' / ') || [];
+              const memoryUsed = parseMemory(memParts[0] || '0');
+              const memoryTotal = parseMemory(memParts[1] || '0');
+              const netParts = net?.split(' / ') || [];
+              const networkRx = parseMemory(netParts[0] || '0');
+              const networkTx = parseMemory(netParts[1] || '0');
+
+              return {
+                container,
+                cpuPercent,
+                memoryUsed,
+                memoryTotal,
+                networkRx,
+                networkTx,
+              };
+            })
+            .filter(
+              (s): s is import('../../types/monitor.js').ContainerStats => s !== null,
+            );
+
+          return parsed;
+        } catch (err) {
+          dashboardLogger.error(`fetchDockerForEnv ${env} failed`, err as Error);
+          return [];
+        }
+      };
+
+      // 获取所有环境的 Docker 数据
+      const fetchDocker = async (): Promise<DockerStats[]> => {
+        const [prodStats, stageStats] = await Promise.all([
+          fetchDockerForEnv('production'),
+          fetchDockerForEnv('stage'),
+        ]);
+
+        return [
+          { environment: 'production', stats: prodStats },
+          { environment: 'stage', stats: stageStats },
+        ];
       };
 
       // 定期刷新数据
@@ -189,29 +221,28 @@ export const dashboardCommand = new Command('dashboard')
         try {
           // 服务健康检查 - 已启用
           const services = await fetchServices().catch((err) => {
-            console.error('fetchServices error:', err.message);
+            dashboardLogger.error('fetchServices failed', err);
             return [];
           });
 
           // 蓝绿部署 - 暂时禁用
           // const blueGreen = await fetchBlueGreen().catch((err) => {
-          //   console.error('fetchBlueGreen error:', err.message);
+          //   dashboardLogger.error('fetchBlueGreen failed', err);
           //   return [];
           // });
           const blueGreen: BlueGreenStatus[] = [];
 
-          // Docker 资源 - 暂时禁用
-          // const docker = await fetchDocker().catch((err) => {
-          //   console.error('fetchDocker error:', err.message);
-          //   return [];
-          // });
-          const docker: DockerStats[] = [];
+          // Docker 资源 - 已启用
+          const docker = await fetchDocker().catch((err) => {
+            dashboardLogger.error('fetchDocker failed', err);
+            return [];
+          });
 
           dashboard.updateServices(services, false);
           dashboard.updateBlueGreen(blueGreen, false);
           dashboard.updateDocker(docker, false);
         } catch (err) {
-          console.error('updateData error:', err);
+          dashboardLogger.error('updateData failed', err as Error);
         }
       };
 
@@ -230,9 +261,13 @@ export const dashboardCommand = new Command('dashboard')
       process.on('exit', () => {
         clearInterval(timer);
         dashboard.destroy();
+        dashboardLogger.info('Dashboard stopped');
+        dashboardLogger.close();
       });
     } catch (error) {
+      dashboardLogger.error('Dashboard startup failed', error as Error);
       handleError(error);
+      dashboardLogger.close();
       process.exit(1);
     }
   });
