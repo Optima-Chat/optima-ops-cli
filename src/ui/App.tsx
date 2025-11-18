@@ -14,7 +14,7 @@ export const App: React.FC<AppProps> = ({ environment, interval }) => {
     if (input === 'q') {
       exit();
     }
-    // TODO: 实现其他快捷键 (d, r, t, l)
+    // TODO: 在实现新的快捷键时同步更新 KeyHints
   });
 
   return <DashboardLayout environment={environment} refreshInterval={interval} />;
