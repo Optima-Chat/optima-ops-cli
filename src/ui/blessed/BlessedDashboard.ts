@@ -67,15 +67,13 @@ export class BlessedDashboard {
     // 更新时间显示（blessed 的 smartCSR 会自动优化，只更新变化的字符）
     const updateTime = () => {
       const now = new Date();
-      const timeStr = now.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      });
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      const second = String(now.getSeconds()).padStart(2, '0');
+      const timeStr = `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 
       // 使用固定宽度确保布局稳定
       const title = `{bold}{cyan-fg}⚡ Optima ${envCapitalized} Monitor{/cyan-fg}{/bold}`;

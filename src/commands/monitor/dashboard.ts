@@ -158,17 +158,27 @@ export const dashboardCommand = new Command('dashboard')
       // 定期刷新数据
       const updateData = async () => {
         try {
-          const [services, blueGreen, docker] = await Promise.all([
-            fetchServices(),
-            fetchBlueGreen(),
-            fetchDocker(),
-          ]);
+          // 分别获取数据，避免一个失败影响其他
+          const services = await fetchServices().catch((err) => {
+            console.error('fetchServices error:', err.message);
+            return [];
+          });
+
+          const blueGreen = await fetchBlueGreen().catch((err) => {
+            console.error('fetchBlueGreen error:', err.message);
+            return [];
+          });
+
+          const docker = await fetchDocker().catch((err) => {
+            console.error('fetchDocker error:', err.message);
+            return [];
+          });
 
           dashboard.updateServices(services, false);
           dashboard.updateBlueGreen(blueGreen, false);
           dashboard.updateDocker(docker, false);
         } catch (err) {
-          // 忽略错误，继续下次刷新
+          console.error('updateData error:', err);
         }
       };
 
