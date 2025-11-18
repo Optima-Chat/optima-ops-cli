@@ -158,21 +158,28 @@ export const dashboardCommand = new Command('dashboard')
       // 定期刷新数据
       const updateData = async () => {
         try {
-          // 分别获取数据，避免一个失败影响其他
-          const services = await fetchServices().catch((err) => {
-            console.error('fetchServices error:', err.message);
-            return [];
-          });
+          // TODO: 暂时禁用所有数据获取，后续逐个调试
 
-          const blueGreen = await fetchBlueGreen().catch((err) => {
-            console.error('fetchBlueGreen error:', err.message);
-            return [];
-          });
+          // 服务健康检查 - 暂时禁用
+          // const services = await fetchServices().catch((err) => {
+          //   console.error('fetchServices error:', err.message);
+          //   return [];
+          // });
+          const services: ServiceHealth[] = [];
 
-          const docker = await fetchDocker().catch((err) => {
-            console.error('fetchDocker error:', err.message);
-            return [];
-          });
+          // 蓝绿部署 - 暂时禁用
+          // const blueGreen = await fetchBlueGreen().catch((err) => {
+          //   console.error('fetchBlueGreen error:', err.message);
+          //   return [];
+          // });
+          const blueGreen: BlueGreenStatus[] = [];
+
+          // Docker 资源 - 暂时禁用
+          // const docker = await fetchDocker().catch((err) => {
+          //   console.error('fetchDocker error:', err.message);
+          //   return [];
+          // });
+          const docker: DockerStats[] = [];
 
           dashboard.updateServices(services, false);
           dashboard.updateBlueGreen(blueGreen, false);
