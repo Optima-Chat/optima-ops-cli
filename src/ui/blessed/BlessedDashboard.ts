@@ -401,10 +401,10 @@ export class BlessedDashboard {
     stats.forEach((envData) => {
       const envLabel = envData.environment === 'production' ? 'Production' : 'Stage';
       content += ` {cyan-fg}${envLabel}{/cyan-fg} (${envData.stats.length} 容器)\n`;
-      content += ' {bold}容器                 CPU    内存       网络{/bold}\n';
+      content += ' {bold}容器                             CPU    内存       网络{/bold}\n';
 
       envData.stats.forEach((stat) => {
-        const container = stat.container.substring(0, 20).padEnd(20);
+        const container = stat.container.substring(0, 30).padEnd(30);
         const cpu = stat.cpuPercent.toFixed(1) + '%';
         const memPercent =
           stat.memoryTotal > 0
