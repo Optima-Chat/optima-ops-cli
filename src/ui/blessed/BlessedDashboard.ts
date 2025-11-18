@@ -48,13 +48,13 @@ export class BlessedDashboard {
   private createHeader(): blessed.Widgets.BoxElement {
     const envCapitalized = this.environment.charAt(0).toUpperCase() + this.environment.slice(1);
 
-    const box = blessed.box({
+    // 主容器
+    const container = blessed.box({
       parent: this.screen,
       top: 0,
       left: 0,
       width: '100%',
       height: 3,
-      tags: true,
       border: {
         type: 'line',
       },
@@ -63,6 +63,22 @@ export class BlessedDashboard {
           fg: 'cyan',
         },
       },
+    });
+
+    // 左侧标题
+    const titleBox = blessed.text({
+      parent: container,
+      top: 0,
+      left: 1,
+      content: `Optima ${envCapitalized} Monitor`,
+    });
+
+    // 右侧信息（固定位置）
+    const infoBox = blessed.text({
+      parent: container,
+      top: 0,
+      right: 1,
+      content: '',
     });
 
     // 更新时间显示
@@ -76,16 +92,14 @@ export class BlessedDashboard {
       const second = String(now.getSeconds()).padStart(2, '0');
       const timeStr = `${year}/${month}/${day} ${hour}:${minute}:${second}`;
 
-      // 简单布局，避免标签长度计算问题
-      const content = ` ⚡ Optima ${envCapitalized} Monitor     刷新: ${this.refreshInterval}s | ${timeStr}`;
-      box.setContent(content);
+      infoBox.setContent(`Refresh: ${this.refreshInterval}s | ${timeStr}`);
       this.screen.render();
     };
 
     updateTime();
     this.timeInterval = setInterval(updateTime, 1000);
 
-    return box;
+    return container;
   }
 
   private createServiceBox(): blessed.Widgets.BoxElement {
