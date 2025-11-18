@@ -8,7 +8,7 @@ export interface BlueGreenPanelProps {
   loading: boolean;
 }
 
-export const BlueGreenPanel: React.FC<BlueGreenPanelProps> = ({
+export const BlueGreenPanel: React.FC<BlueGreenPanelProps> = React.memo(({
   statuses,
   loading,
 }) => {
@@ -54,4 +54,4 @@ export const BlueGreenPanel: React.FC<BlueGreenPanelProps> = ({
       ))}
     </Box>
   );
-};
+});

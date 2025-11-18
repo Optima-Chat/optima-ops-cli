@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { Header } from '../components/Header.js';
 import { ServicePanel } from '../components/ServicePanel.js';
@@ -43,8 +43,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     intervalMs,
   );
 
-  // 检查最小尺寸
-  if (width < MIN_WIDTH || height < MIN_HEIGHT) {
+  // 响应式布局：大屏幕(>120)使用两列，小屏幕垂直堆叠
+  const useTwoColumns = useMemo(() => width >= 120, [width]);
+
+  // 使用 useMemo 缓存最小尺寸检查结果
+  const isSizeTooSmall = useMemo(
+    () => width < MIN_WIDTH || height < MIN_HEIGHT,
+    [width, height],
+  );
+
+  if (isSizeTooSmall) {
     return (
       <Box flexDirection="column" padding={1}>
         <Box borderStyle="round" borderColor="red" paddingX={2} paddingY={1}>
@@ -59,16 +67,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <Text>
             最小要求: {MIN_WIDTH} x {MIN_HEIGHT}
           </Text>
-          <Text dimColor>
-            请调整终端窗口大小或按 q 退出
-          </Text>
+          <Text dimColor>请调整终端窗口大小或按 q 退出</Text>
         </Box>
       </Box>
     );
   }
-
-  // 响应式布局：大屏幕(>120)使用两列，小屏幕垂直堆叠
-  const useTwoColumns = width >= 120;
 
   return (
     <Box flexDirection="column" padding={1}>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 
-export const KeyHints: React.FC = () => {
+export const KeyHints: React.FC = React.memo(() => {
   return (
     <Box borderStyle="single" borderColor="gray" paddingX={2} paddingY={0}>
       <Text dimColor>
@@ -11,4 +11,4 @@ export const KeyHints: React.FC = () => {
       </Text>
     </Box>
   );
-};
+});

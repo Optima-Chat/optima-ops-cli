@@ -49,7 +49,13 @@ export const useBlueGreenStatus = (
           }),
         );
 
-        setStatuses(results);
+        // 只在数据真正变化时更新 state（避免不必要的重渲染）
+        setStatuses((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(results)) {
+            return prev; // 数据未变化，返回旧引用
+          }
+          return results;
+        });
         setError(null);
       } catch (err) {
         const error = err as Error;

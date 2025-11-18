@@ -9,7 +9,7 @@ export interface ServicePanelProps {
   loading: boolean;
 }
 
-export const ServicePanel: React.FC<ServicePanelProps> = ({
+export const ServicePanel: React.FC<ServicePanelProps> = React.memo(({
   services,
   loading,
 }) => {
@@ -105,4 +105,4 @@ export const ServicePanel: React.FC<ServicePanelProps> = ({
       </Box>
     </Box>
   );
-};
+});

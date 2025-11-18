@@ -8,7 +8,7 @@ export interface DockerPanelProps {
   loading: boolean;
 }
 
-export const DockerPanel: React.FC<DockerPanelProps> = ({ stats, loading }) => {
+export const DockerPanel: React.FC<DockerPanelProps> = React.memo(({ stats, loading }) => {
   if (loading) {
     return (
       <Box borderStyle="round" paddingX={2} paddingY={1}>
@@ -66,4 +66,4 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ stats, loading }) => {
       })}
     </Box>
   );
-};
+});

@@ -65,7 +65,13 @@ export const useDockerStats = (
           })
           .filter((s): s is DockerStats => s !== null);
 
-        setStats(parsed);
+        // 只在数据真正变化时更新 state（避免不必要的重渲染）
+        setStats((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(parsed)) {
+            return prev; // 数据未变化，返回旧引用
+          }
+          return parsed;
+        });
         setError(null);
       } catch (err) {
         setError((err as Error).message);
