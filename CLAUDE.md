@@ -101,7 +101,9 @@ optima-ops validate diff user-auth --from-env prod --to-env stage
 ## 快速开始
 
 ```bash
-# 安装依赖
+# 安装依赖（推荐使用 pnpm，速度更快）
+pnpm install
+# 或
 npm install
 
 # 开发模式（推荐，使用 tsx 直接运行）
@@ -113,7 +115,9 @@ npm run dev -- validate spec user-auth
 npm start
 ```
 
-**注意**: WSL 环境下 `npm run build` (tsc) 可能卡住，推荐使用 `npm run dev` 直接运行 TypeScript。
+**注意**:
+- **推荐使用 pnpm**：速度比 npm 快，节省磁盘空间
+- WSL 环境下 `npm run build` (tsc) 可能卡住，推荐使用 `npm run dev` 直接运行 TypeScript
 
 ---
 
