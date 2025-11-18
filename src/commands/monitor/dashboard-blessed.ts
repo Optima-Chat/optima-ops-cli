@@ -34,7 +34,8 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
               const startTime = Date.now();
               const response = await axios.get(svc.healthEndpoint, {
                 timeout: 3000,
-                validateStatus: (status) => status < 500,
+                maxRedirects: 0, // 307/308 视为异常
+                validateStatus: () => true,
               });
               const responseTime = Date.now() - startTime;
 
@@ -48,7 +49,7 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
                 type: svc.type,
                 health,
                 responseTime,
-                containerStatus: 'running',
+                containerStatus: health === 'healthy' ? 'running' : 'stopped',
               } as ServiceHealth;
             } catch (err) {
               return {

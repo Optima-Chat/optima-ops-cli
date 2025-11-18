@@ -98,6 +98,7 @@ export const dashboardCommand = new Command('dashboard')
           const startTime = Date.now();
           const response = await axios.get(healthEndpoint, {
             timeout: 3000,
+            maxRedirects: 0, // stage MCP 307 必须返回给调用方
             validateStatus: () => true, // 接受所有状态码，不抛异常
           });
           const responseTime = Date.now() - startTime;
