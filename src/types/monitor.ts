@@ -54,6 +54,16 @@ export interface DockerStats {
 }
 
 /**
+ * 磁盘使用情况
+ */
+export interface DiskStats {
+  mountPoint: string;
+  used: number; // GB
+  total: number; // GB
+  percent: number;
+}
+
+/**
  * EC2 资源使用
  */
 export interface EC2Stats {
@@ -63,8 +73,9 @@ export interface EC2Stats {
   cpuUsage?: number;
   memoryUsed: number; // MB
   memoryTotal: number; // MB
-  diskUsed: number; // GB
-  diskTotal: number; // GB
+  diskUsed: number; // GB (Root 卷，保留向后兼容)
+  diskTotal: number; // GB (Root 卷)
+  disks?: DiskStats[]; // 所有磁盘分区
   uptime: string;
 }
 

@@ -98,11 +98,11 @@ export const dashboardCommand = new Command('dashboard')
           const startTime = Date.now();
           const response = await axios.get(healthEndpoint, {
             timeout: 3000,
-            validateStatus: (status) => status < 500,
+            validateStatus: () => true, // 接受所有状态码，不抛异常
           });
           const responseTime = Date.now() - startTime;
 
-          // 200 和 404 为健康，307 等重定向为不健康
+          // 只有 200 和 404 为健康，其他所有状态（包括 307, 502 等）都为不健康
           const health: 'healthy' | 'degraded' | 'unhealthy' =
             response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
 
@@ -112,6 +112,7 @@ export const dashboardCommand = new Command('dashboard')
             containerStatus: health === 'healthy' ? 'running' : 'stopped',
           };
         } catch (err) {
+          // 网络错误、超时等
           return {
             health: 'unhealthy',
             responseTime: 0,
@@ -277,7 +278,19 @@ export const dashboardCommand = new Command('dashboard')
           const memoryTotal = parseInt(memParts[1] || '0', 10);
           const memoryUsed = parseInt(memParts[2] || '0', 10);
 
-          // 获取磁盘信息
+          // 获取所有磁盘信息 (df -h 显示所有挂载点)
+          const allDisksResult = await executeSSHCommand(host, 'df -BG | grep -E "^/dev/" | grep -v "loop"');
+          const diskLines = allDisksResult.trim().split('\n');
+          const disks: import('../../types/monitor.js').DiskStats[] = diskLines.map((line) => {
+            const parts = line.trim().split(/\s+/);
+            const total = parseInt(parts[1]?.replace('G', '') || '0', 10);
+            const used = parseInt(parts[2]?.replace('G', '') || '0', 10);
+            const percent = parseInt(parts[4]?.replace('%', '') || '0', 10);
+            const mountPoint = parts[5] || '';
+            return { mountPoint, used, total, percent };
+          });
+
+          // Root 卷信息 (向后兼容)
           const diskResult = await executeSSHCommand(host, 'df -BG / | tail -1');
           const diskParts = diskResult.trim().split(/\s+/);
           const diskTotal = parseInt(diskParts[1]?.replace('G', '') || '0', 10);
@@ -305,6 +318,7 @@ export const dashboardCommand = new Command('dashboard')
             memoryTotal,
             diskUsed,
             diskTotal,
+            disks,
             uptime,
           };
         } catch (err) {

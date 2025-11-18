@@ -358,12 +358,23 @@ export class BlessedDashboard {
           parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
         content += ` {bold}内存{/bold}:     {${memColor}-fg}${stat.memoryUsed}MB / ${stat.memoryTotal}MB (${memPercent}%){/${memColor}-fg}\n`;
 
-        // 磁盘
-        const diskPercent =
-          stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(0) : '0';
-        const diskColor =
-          parseInt(diskPercent) > 80 ? 'red' : parseInt(diskPercent) > 50 ? 'yellow' : 'green';
-        content += ` {bold}磁盘{/bold}:     {${diskColor}-fg}${stat.diskUsed}GB / ${stat.diskTotal}GB (${diskPercent}%){/${diskColor}-fg}\n`;
+        // 磁盘 - 显示所有分区
+        if (stat.disks && stat.disks.length > 0) {
+          content += ` {bold}磁盘{/bold}:\n`;
+          stat.disks.forEach((disk) => {
+            const diskColor =
+              disk.percent > 80 ? 'red' : disk.percent > 50 ? 'yellow' : 'green';
+            const mountLabel = disk.mountPoint.padEnd(6);
+            content += `   ${mountLabel} {${diskColor}-fg}${disk.used}GB / ${disk.total}GB (${disk.percent}%){/${diskColor}-fg}\n`;
+          });
+        } else {
+          // 向后兼容：如果没有 disks 数组，显示旧格式
+          const diskPercent =
+            stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(0) : '0';
+          const diskColor =
+            parseInt(diskPercent) > 80 ? 'red' : parseInt(diskPercent) > 50 ? 'yellow' : 'green';
+          content += ` {bold}磁盘{/bold}:     {${diskColor}-fg}${stat.diskUsed}GB / ${stat.diskTotal}GB (${diskPercent}%){/${diskColor}-fg}\n`;
+        }
 
         content += '\n';
       });
