@@ -29,24 +29,37 @@ export const useServiceMonitor = (
           serviceEndpoints.map(async ({ name, url, type }) => {
             try {
               const startTime = Date.now();
-              const response = await axios.get(url, { timeout: 5000 });
+              const response = await axios.get(url, {
+                timeout: 3000,
+                validateStatus: (status) => status < 500, // 404 也算成功连接
+              });
               const responseTime = Date.now() - startTime;
+
+              // 判断健康状态
+              // 200 或 404 都说明服务在线（404 表示端点不存在但服务运行中）
+              const health: 'healthy' | 'degraded' | 'unhealthy' =
+                response.status === 200 || response.status === 404
+                  ? 'healthy'
+                  : 'unhealthy';
 
               return {
                 name,
                 type,
-                health: response.status === 200 ? 'healthy' : 'degraded',
+                health,
                 responseTime,
                 containerStatus: 'running',
               } as ServiceHealth;
             } catch (err) {
+              const error = err as any;
+              const isTimeout = error.code === 'ECONNABORTED';
+
               return {
                 name,
                 type,
                 health: 'unhealthy',
                 responseTime: 0,
-                containerStatus: 'unknown',
-                error: (err as Error).message,
+                containerStatus: isTimeout ? 'timeout' : 'unknown',
+                error: error.message,
               } as ServiceHealth;
             }
           }),
