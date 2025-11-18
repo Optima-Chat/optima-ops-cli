@@ -14,6 +14,8 @@ import type {
   EC2Stats,
 } from '../../types/monitor.js';
 import { dashboardLogger } from '../../utils/dashboard-logger.js';
+import { Client as SSH2Client } from 'ssh2';
+import fs from 'fs';
 
 export const dashboardCommand = new Command('dashboard')
   .description('Launch interactive TUI monitoring dashboard (blessed-based, no flicker)')
@@ -36,6 +38,57 @@ export const dashboardCommand = new Command('dashboard')
         environment,
         refreshInterval,
       });
+
+      // 辅助函数：简单的 SSH 命令执行
+      const executeSSHCommand = async (
+        host: string,
+        command: string,
+      ): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const conn = new SSH2Client();
+          const keyPath = process.env.OPTIMA_SSH_KEY || `${process.env.HOME}/.ssh/optima-ec2-key`;
+          const privateKey = fs.readFileSync(keyPath, 'utf8');
+
+          conn
+            .on('ready', () => {
+              conn.exec(command, (err, stream) => {
+                if (err) {
+                  conn.end();
+                  reject(err);
+                  return;
+                }
+
+                let stdout = '';
+                let stderr = '';
+
+                stream
+                  .on('close', () => {
+                    conn.end();
+                    if (stderr) {
+                      reject(new Error(stderr));
+                    } else {
+                      resolve(stdout);
+                    }
+                  })
+                  .on('data', (data: Buffer) => {
+                    stdout += data.toString();
+                  })
+                  .stderr.on('data', (data: Buffer) => {
+                    stderr += data.toString();
+                  });
+              });
+            })
+            .on('error', (err) => {
+              reject(err);
+            })
+            .connect({
+              host,
+              port: 22,
+              username: 'ec2-user',
+              privateKey,
+            });
+        });
+      };
 
       // 获取单个环境的健康状态
       const fetchEnvironmentHealth = async (
@@ -158,17 +211,14 @@ export const dashboardCommand = new Command('dashboard')
         env: 'production' | 'stage',
       ): Promise<import('../../types/monitor.js').ContainerStats[]> => {
         try {
-          const ssh = new SSHClient({ env });
+          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
 
-          await ssh.connect();
-
-          const result = await ssh.executeCommand(
+          const stdout = await executeSSHCommand(
+            host,
             'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"',
           );
 
-          await ssh.disconnect();
-
-          const lines = result.stdout.trim().split('\n');
+          const lines = stdout.trim().split('\n');
           const parsed = lines
             .map((line) => {
               const [container, cpu, mem, net] = line.split('|');
@@ -219,39 +269,38 @@ export const dashboardCommand = new Command('dashboard')
       // 获取单个环境的 EC2 资源
       const fetchEC2ForEnv = async (env: 'production' | 'stage'): Promise<EC2Stats | null> => {
         try {
-          const ssh = new SSHClient({ env });
-          await ssh.connect();
+          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
 
           // 获取内存信息
-          const memResult = await ssh.executeCommand('free -m | grep Mem');
-          const memParts = memResult.stdout.trim().split(/\s+/);
+          const memResult = await executeSSHCommand(host, 'free -m | grep Mem');
+          const memParts = memResult.trim().split(/\s+/);
           const memoryTotal = parseInt(memParts[1] || '0', 10);
           const memoryUsed = parseInt(memParts[2] || '0', 10);
 
           // 获取磁盘信息
-          const diskResult = await ssh.executeCommand('df -BG / | tail -1');
-          const diskParts = diskResult.stdout.trim().split(/\s+/);
+          const diskResult = await executeSSHCommand(host, 'df -BG / | tail -1');
+          const diskParts = diskResult.trim().split(/\s+/);
           const diskTotal = parseInt(diskParts[1]?.replace('G', '') || '0', 10);
           const diskUsed = parseInt(diskParts[2]?.replace('G', '') || '0', 10);
 
           // 获取 uptime
-          const uptimeResult = await ssh.executeCommand('uptime -p');
-          const uptime = uptimeResult.stdout.trim().replace('up ', '');
+          const uptimeResult = await executeSSHCommand(host, 'uptime -p');
+          const uptime = uptimeResult.trim().replace('up ', '');
 
           // 获取实例元数据
-          const instanceIdResult = await ssh.executeCommand(
+          const instanceIdResult = await executeSSHCommand(
+            host,
             'ec2-metadata --instance-id 2>/dev/null | cut -d " " -f 2 || echo "unknown"',
           );
-          const instanceTypeResult = await ssh.executeCommand(
+          const instanceTypeResult = await executeSSHCommand(
+            host,
             'ec2-metadata --instance-type 2>/dev/null | cut -d " " -f 2 || echo "unknown"',
           );
 
-          await ssh.disconnect();
-
           return {
             environment: env,
-            instanceId: instanceIdResult.stdout.trim() || 'unknown',
-            instanceType: instanceTypeResult.stdout.trim() || 'unknown',
+            instanceId: instanceIdResult.trim() || 'unknown',
+            instanceType: instanceTypeResult.trim() || 'unknown',
             memoryUsed,
             memoryTotal,
             diskUsed,
