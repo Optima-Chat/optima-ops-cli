@@ -107,9 +107,9 @@ export class BlessedDashboard {
       parent: this.screen,
       top: 3,
       left: 0,
-      width: '50%',
-      height: 20, // 增加到 20 行
-      label: ' 🏥 服务健康 ',
+      width: 60,
+      height: 20,
+      label: ' 服务健康 ',
       content: ' 加载中...',
       border: {
         type: 'line',
@@ -130,9 +130,9 @@ export class BlessedDashboard {
       parent: this.screen,
       top: 23,
       left: 0,
-      width: '50%',
-      height: '100%-26', // 剩余空间
-      label: ' 🔵 蓝绿部署 ',
+      width: 60,
+      height: '100%-26',
+      label: ' 蓝绿部署 ',
       content: ' 加载中...',
       border: {
         type: 'line',
@@ -152,10 +152,10 @@ export class BlessedDashboard {
     return blessed.box({
       parent: this.screen,
       top: 3,
-      left: '50%',
-      width: '50%',
+      left: 60,
+      width: 60,
       height: '100%-6',
-      label: ' 🐳 Docker 资源 ',
+      label: ' Docker 资源 ',
       content: ' 加载中...',
       border: {
         type: 'line',

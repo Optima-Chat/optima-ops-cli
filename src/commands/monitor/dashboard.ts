@@ -158,14 +158,11 @@ export const dashboardCommand = new Command('dashboard')
       // 定期刷新数据
       const updateData = async () => {
         try {
-          // TODO: 暂时禁用所有数据获取，后续逐个调试
-
-          // 服务健康检查 - 暂时禁用
-          // const services = await fetchServices().catch((err) => {
-          //   console.error('fetchServices error:', err.message);
-          //   return [];
-          // });
-          const services: ServiceHealth[] = [];
+          // 服务健康检查 - 已启用
+          const services = await fetchServices().catch((err) => {
+            console.error('fetchServices error:', err.message);
+            return [];
+          });
 
           // 蓝绿部署 - 暂时禁用
           // const blueGreen = await fetchBlueGreen().catch((err) => {
