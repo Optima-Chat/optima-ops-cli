@@ -7,7 +7,12 @@ import { ECSService } from '../../services/aws/ecs-service.js';
 import { SSHClient } from '../../utils/ssh.js';
 import { getCurrentEnvConfig } from '../../utils/config.js';
 import axios from 'axios';
-import type { ServiceHealth, BlueGreenStatus, DockerStats } from '../../types/monitor.js';
+import type {
+  ServiceHealth,
+  BlueGreenStatus,
+  DockerStats,
+  EC2Stats,
+} from '../../types/monitor.js';
 import { dashboardLogger } from '../../utils/dashboard-logger.js';
 
 export const dashboardCommand = new Command('dashboard')
@@ -153,12 +158,7 @@ export const dashboardCommand = new Command('dashboard')
         env: 'production' | 'stage',
       ): Promise<import('../../types/monitor.js').ContainerStats[]> => {
         try {
-          const host = env === 'production' ? 'ec2-prod.optima.shop' : 'ec2-stage.optima.shop';
-          const ssh = new SSHClient({
-            host,
-            username: 'ec2-user',
-            privateKeyPath: process.env.OPTIMA_SSH_KEY || '~/.ssh/optima-ec2-key',
-          });
+          const ssh = new SSHClient({ env });
 
           await ssh.connect();
 
@@ -216,6 +216,64 @@ export const dashboardCommand = new Command('dashboard')
         ];
       };
 
+      // 获取单个环境的 EC2 资源
+      const fetchEC2ForEnv = async (env: 'production' | 'stage'): Promise<EC2Stats | null> => {
+        try {
+          const ssh = new SSHClient({ env });
+          await ssh.connect();
+
+          // 获取内存信息
+          const memResult = await ssh.executeCommand('free -m | grep Mem');
+          const memParts = memResult.stdout.trim().split(/\s+/);
+          const memoryTotal = parseInt(memParts[1] || '0', 10);
+          const memoryUsed = parseInt(memParts[2] || '0', 10);
+
+          // 获取磁盘信息
+          const diskResult = await ssh.executeCommand('df -BG / | tail -1');
+          const diskParts = diskResult.stdout.trim().split(/\s+/);
+          const diskTotal = parseInt(diskParts[1]?.replace('G', '') || '0', 10);
+          const diskUsed = parseInt(diskParts[2]?.replace('G', '') || '0', 10);
+
+          // 获取 uptime
+          const uptimeResult = await ssh.executeCommand('uptime -p');
+          const uptime = uptimeResult.stdout.trim().replace('up ', '');
+
+          // 获取实例元数据
+          const instanceIdResult = await ssh.executeCommand(
+            'ec2-metadata --instance-id 2>/dev/null | cut -d " " -f 2 || echo "unknown"',
+          );
+          const instanceTypeResult = await ssh.executeCommand(
+            'ec2-metadata --instance-type 2>/dev/null | cut -d " " -f 2 || echo "unknown"',
+          );
+
+          await ssh.disconnect();
+
+          return {
+            environment: env,
+            instanceId: instanceIdResult.stdout.trim() || 'unknown',
+            instanceType: instanceTypeResult.stdout.trim() || 'unknown',
+            memoryUsed,
+            memoryTotal,
+            diskUsed,
+            diskTotal,
+            uptime,
+          };
+        } catch (err) {
+          dashboardLogger.error(`fetchEC2ForEnv ${env} failed`, err as Error);
+          return null;
+        }
+      };
+
+      // 获取所有环境的 EC2 数据
+      const fetchEC2 = async (): Promise<EC2Stats[]> => {
+        const [prodStats, stageStats] = await Promise.all([
+          fetchEC2ForEnv('production'),
+          fetchEC2ForEnv('stage'),
+        ]);
+
+        return [prodStats, stageStats].filter((s): s is EC2Stats => s !== null);
+      };
+
       // 定期刷新数据
       const updateData = async () => {
         try {
@@ -225,12 +283,11 @@ export const dashboardCommand = new Command('dashboard')
             return [];
           });
 
-          // 蓝绿部署 - 暂时禁用
-          // const blueGreen = await fetchBlueGreen().catch((err) => {
-          //   dashboardLogger.error('fetchBlueGreen failed', err);
-          //   return [];
-          // });
-          const blueGreen: BlueGreenStatus[] = [];
+          // EC2 资源 - 已启用
+          const ec2 = await fetchEC2().catch((err) => {
+            dashboardLogger.error('fetchEC2 failed', err);
+            return [];
+          });
 
           // Docker 资源 - 已启用
           const docker = await fetchDocker().catch((err) => {
@@ -239,7 +296,7 @@ export const dashboardCommand = new Command('dashboard')
           });
 
           dashboard.updateServices(services, false);
-          dashboard.updateBlueGreen(blueGreen, false);
+          dashboard.updateBlueGreen(ec2, false);
           dashboard.updateDocker(docker, false);
         } catch (err) {
           dashboardLogger.error('updateData failed', err as Error);

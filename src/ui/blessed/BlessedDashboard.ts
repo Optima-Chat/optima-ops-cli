@@ -1,5 +1,5 @@
 import blessed from 'neo-blessed';
-import type { ServiceHealth, BlueGreenStatus, DockerStats } from '../../types/monitor.js';
+import type { ServiceHealth, BlueGreenStatus, DockerStats, EC2Stats } from '../../types/monitor.js';
 
 export interface BlessedDashboardOptions {
   environment: string;
@@ -172,8 +172,9 @@ export class BlessedDashboard {
       left: 0,
       width: 60,
       height: '100%-26',
-      label: ' 蓝绿部署 ',
+      label: ' EC2 资源 ',
       content: ' 加载中...',
+      tags: true,
       border: {
         type: 'line',
       },
@@ -184,7 +185,7 @@ export class BlessedDashboard {
           fg: COLORS.cyan,
         },
         label: {
-          fg: COLORS.blue,
+          fg: COLORS.yellow,
           bold: true,
         },
       },
@@ -326,32 +327,50 @@ export class BlessedDashboard {
     this.screen.render();
   }
 
-  public updateBlueGreen(statuses: BlueGreenStatus[], loading: boolean): void {
+  public updateBlueGreen(ec2Stats: EC2Stats[] | BlueGreenStatus[], loading: boolean): void {
     if (loading) {
-      this.blueGreenBox.setContent(' 加载蓝绿部署状态...');
+      this.blueGreenBox.setContent(' 加载 EC2 资源...');
       this.screen.render();
       return;
     }
 
-    if (statuses.length === 0) {
-      this.blueGreenBox.setContent(' 无蓝绿部署数据（可能未使用 ECS）');
+    if (ec2Stats.length === 0) {
+      this.blueGreenBox.setContent(' 无 EC2 数据');
       this.screen.render();
       return;
     }
 
-    let content = ' 服务              Blue任务  Green任务  流量分配\n';
+    // 检查是否是 EC2Stats
+    if ('environment' in ec2Stats[0]) {
+      let content = '';
 
-    statuses.forEach((status) => {
-      const name = status.service.padEnd(16);
-      const blue = `${status.blue.running}/${status.blue.desired}`.padEnd(9);
-      const green = `${status.green.running}/${status.green.desired}`.padEnd(10);
-      const traffic = `B:${status.traffic.blue}% G:${status.traffic.green}%`;
+      (ec2Stats as EC2Stats[]).forEach((stat) => {
+        const envLabel = stat.environment === 'production' ? 'Production' : 'Stage';
+        content += ` {cyan-fg}${envLabel}{/cyan-fg}\n`;
+        content += ` {bold}实例类型{/bold}: ${stat.instanceType}\n`;
+        content += ` {bold}实例 ID{/bold}:  ${stat.instanceId}\n`;
+        content += ` {bold}运行时间{/bold}: ${stat.uptime}\n`;
 
-      content += ` ${name} ${blue} ${green} ${traffic}\n`;
-    });
+        // 内存
+        const memPercent =
+          stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
+        const memColor =
+          parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
+        content += ` {bold}内存{/bold}:     {${memColor}-fg}${stat.memoryUsed}MB / ${stat.memoryTotal}MB (${memPercent}%){/${memColor}-fg}\n`;
 
-    this.blueGreenBox.setContent(content);
-    this.screen.render();
+        // 磁盘
+        const diskPercent =
+          stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(0) : '0';
+        const diskColor =
+          parseInt(diskPercent) > 80 ? 'red' : parseInt(diskPercent) > 50 ? 'yellow' : 'green';
+        content += ` {bold}磁盘{/bold}:     {${diskColor}-fg}${stat.diskUsed}GB / ${stat.diskTotal}GB (${diskPercent}%){/${diskColor}-fg}\n`;
+
+        content += '\n';
+      });
+
+      this.blueGreenBox.setContent(content);
+      this.screen.render();
+    }
   }
 
   public updateDocker(stats: DockerStats[], loading: boolean): void {

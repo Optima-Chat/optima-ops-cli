@@ -54,6 +54,21 @@ export interface DockerStats {
 }
 
 /**
+ * EC2 资源使用
+ */
+export interface EC2Stats {
+  environment: 'production' | 'stage';
+  instanceId: string;
+  instanceType: string;
+  cpuUsage?: number;
+  memoryUsed: number; // MB
+  memoryTotal: number; // MB
+  diskUsed: number; // GB
+  diskTotal: number; // GB
+  uptime: string;
+}
+
+/**
  * 监控数据聚合
  */
 export interface MonitorData {
