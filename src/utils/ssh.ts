@@ -17,7 +17,9 @@ const READONLY_COMMANDS = [
   'ip ',
   'ip-',
   'df -h',
+  'df -BG',
   'free -h',
+  'free -m',
   'systemctl status',
   'journalctl',
   'cat',
@@ -32,6 +34,9 @@ const READONLY_COMMANDS = [
   'uptime',
   'date',
   'wc',
+  'curl',
+  'ec2-metadata',
+  'cut',
 ];
 
 // 低风险命令（需要确认）

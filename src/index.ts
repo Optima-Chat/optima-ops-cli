@@ -74,4 +74,13 @@ program
     }
   });
 
+// 默认行为：无参数时启动监控界面
+const args = process.argv.slice(2);
+const hasCommand = args.length > 0 && !args[0]?.startsWith('--');
+
+if (!hasCommand) {
+  // 无命令参数，启动监控界面
+  process.argv = ['node', 'optima-ops', 'monitor', 'dashboard-blessed'];
+}
+
 program.parse();
