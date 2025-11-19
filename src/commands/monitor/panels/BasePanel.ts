@@ -32,10 +32,10 @@ export abstract class BasePanel {
     // 创建主容器
     this.container = blessed.box({
       parent: screen,
-      top: 3, // 为 header 留空间
+      top: 3, // 为 header 留空间 (header 高度 3)
+      bottom: 2, // 为 footer 留空间 (footer 高度 2)
       left: 0,
       width: '100%',
-      height: '100%-6', // 为 header 和 footer 留空间
       label: ` ${config.label} `,
       tags: true,
       border: {
