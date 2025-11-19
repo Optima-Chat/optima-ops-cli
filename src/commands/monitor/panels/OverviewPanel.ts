@@ -107,30 +107,28 @@ export class OverviewPanel extends BasePanel {
    */
   hide(): void {
     this.isVisible = false;
-    this.leftBox.hide();
-    this.rightBox.hide();
-    this.stopAutoRefresh();
+    if (this.leftBox) this.leftBox.hide();
+    if (this.rightBox) this.rightBox.hide();
+    // 不调用 stopAutoRefresh，让 BasePanel 处理
   }
 
   /**
    * 访问 BasePanel 的 private 方法（通过 any 类型转换）
    */
   private startAutoRefresh(): void {
-    (this as any).refresh().catch((error: any) => {
+    // 立即刷新一次
+    this.refresh().catch((error: any) => {
       this.showError(`刷新失败: ${error.message}`);
     });
 
+    // 设置定时刷新（直接使用 config 的刷新间隔）
     const timer = setInterval(() => {
       if (this.isVisible) {
-        (this as any).refresh().catch((error: any) => {
+        this.refresh().catch((error: any) => {
           this.showError(`刷新失败: ${error.message}`);
         });
       }
     }, this.config.refreshInterval);
-  }
-
-  private stopAutoRefresh(): void {
-    // BasePanel 会处理
   }
 
   async refresh(): Promise<void> {

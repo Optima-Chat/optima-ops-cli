@@ -1,6 +1,8 @@
 import blessed from 'neo-blessed';
 import type { PanelType, PanelConfig } from '../../../types/monitor.js';
 import { DataCache } from '../../../services/monitor/DataCache.js';
+import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
+import { BlueGreenService } from '../../../services/monitor/BlueGreenService.js';
 import type { BasePanel } from './BasePanel.js';
 
 /**
@@ -11,6 +13,7 @@ import type { BasePanel } from './BasePanel.js';
  * - 处理 Panel 切换逻辑
  * - 管理键盘导航
  * - 协调数据缓存
+ * - **统一后台数据刷新**（新增）
  */
 export class PanelManager {
   private screen: blessed.Widgets.Screen;
@@ -20,6 +23,11 @@ export class PanelManager {
   private headerBox: blessed.Widgets.BoxElement;
   private footerBox: blessed.Widgets.BoxElement;
   private environment: string;
+
+  // 统一数据刷新
+  private dataService: MonitorDataService;
+  private blueGreenService: BlueGreenService;
+  private refreshTimers: Map<string, NodeJS.Timeout>;
 
   // Panel 配置
   private static readonly PANEL_CONFIGS: PanelConfig[] = [
