@@ -10,31 +10,12 @@ import { BlueGreenPanel } from './panels/BlueGreenPanel.js';
 import { dashboardLogger } from '../../utils/dashboard-logger.js';
 
 /**
- * Multi-Panel Dashboard Command (Complete)
- *
- * 新一代多面板架构 Dashboard：
- * - Panel 0: 概览 (OverviewPanel)
- * - Panel 1: 服务健康 (ServicesPanel)
- * - Panel 2: EC2 资源 (EC2Panel)
- * - Panel 3: Docker 容器 (DockerPanel)
- * - Panel 4: 蓝绿部署 (BlueGreenPanel)
- *
- * 键盘导航：
- * - 0-4: 直接切换到指定 Panel
- * - Tab/Shift+Tab: 循环切换 Panel
- * - r: 手动刷新当前 Panel
- * - q/Esc: 退出
- *
- * Phase 3 完整实现
+ * 启动多面板 Dashboard
  */
-export const dashboardCommand = new Command('dashboard')
-  .description('多面板监控仪表盘（5 个面板：概览、服务、EC2、Docker、蓝绿部署）')
-  .option('--env <environment>', '监控环境', 'production')
-  .option('--interval <seconds>', '刷新间隔（秒）', '5')
-  .action(async (options) => {
-    try {
-      const environment = options.env;
-      const refreshInterval = parseInt(options.interval, 10) * 1000; // 转换为毫秒
+export async function startDashboard(options: { env: string; interval?: string }) {
+  try {
+    const environment = options.env;
+    const refreshInterval = parseInt(options.interval || '5', 10) * 1000; // 转换为毫秒
 
       // 日志信息
       dashboardLogger.info('Multi-panel Dashboard started (Complete)', {
@@ -142,8 +123,32 @@ export const dashboardCommand = new Command('dashboard')
       // 渲染屏幕
       screen.render();
 
-      dashboardLogger.info('Dashboard initialized successfully (5 panels)');
-    } catch (error) {
-      handleError(error);
-    }
-  });
+    dashboardLogger.info('Dashboard initialized successfully (5 panels)');
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+/**
+ * Multi-Panel Dashboard Command (Complete)
+ *
+ * 新一代多面板架构 Dashboard：
+ * - Panel 0: 概览 (OverviewPanel)
+ * - Panel 1: 服务健康 (ServicesPanel)
+ * - Panel 2: EC2 资源 (EC2Panel)
+ * - Panel 3: Docker 容器 (DockerPanel)
+ * - Panel 4: 蓝绿部署 (BlueGreenPanel)
+ *
+ * 键盘导航：
+ * - 0-4: 直接切换到指定 Panel
+ * - Tab/Shift+Tab: 循环切换 Panel
+ * - r: 手动刷新当前 Panel
+ * - q/Esc: 退出
+ *
+ * Phase 3 完整实现
+ */
+export const dashboardCommand = new Command('dashboard')
+  .description('多面板监控仪表盘（5 个面板：概览、服务、EC2、Docker、蓝绿部署）')
+  .option('--env <environment>', '监控环境', 'production')
+  .option('--interval <seconds>', '刷新间隔（秒）', '5')
+  .action(startDashboard);
