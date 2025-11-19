@@ -88,3 +88,67 @@ export interface MonitorData {
   blueGreen: BlueGreenStatus[];
   docker: DockerStats[];
 }
+
+/**
+ * Target Group 信息（用于蓝绿部署）
+ */
+export interface TargetGroupInfo {
+  name: string;
+  arn: string;
+  port: number;
+  healthyCount: number;
+  unhealthyCount: number;
+  drainingCount: number;
+  weight: number; // 流量权重 0-100
+}
+
+/**
+ * 蓝绿部署详细信息
+ */
+export interface BlueGreenDeployment {
+  service: string;
+  environment: 'production' | 'stage';
+  subdomain: string;
+  blueTargetGroup: TargetGroupInfo;
+  greenTargetGroup: TargetGroupInfo;
+  totalTraffic: {
+    blue: number;
+    green: number;
+  };
+  status: 'blue-only' | 'green-only' | 'canary' | 'split';
+  lastDeployment?: {
+    timestamp: Date;
+    version: string;
+    type: 'blue' | 'green';
+  };
+}
+
+/**
+ * Panel 类型
+ */
+export type PanelType = 'overview' | 'services' | 'ec2' | 'docker' | 'bluegreen';
+
+/**
+ * Panel 配置
+ */
+export interface PanelConfig {
+  type: PanelType;
+  key: string; // 键盘快捷键 (0-4)
+  label: string;
+  description: string;
+  refreshInterval: number; // 毫秒
+}
+
+/**
+ * Dashboard 状态
+ */
+export interface DashboardState {
+  currentPanel: PanelType;
+  lastRefresh: Map<PanelType, Date>;
+  cachedData: {
+    services?: ServiceHealth[];
+    ec2?: EC2Stats[];
+    docker?: DockerStats[];
+    blueGreen?: BlueGreenDeployment[];
+  };
+}
