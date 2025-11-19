@@ -43,7 +43,7 @@ export class EC2Panel extends BasePanel {
     const ec2Stats = this.cache.getEC2(this.environment);
 
     if (!ec2Stats || ec2Stats.length === 0) {
-      this.showEmpty('无 EC2 数据');
+      this.showLoading('加载 EC2 数据...');
       return;
     }
 

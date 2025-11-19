@@ -44,7 +44,7 @@ export class ServicesPanel extends BasePanel {
     const services = this.cache.getServices(this.environment);
 
     if (!services || services.length === 0) {
-      this.showEmpty('无服务数据');
+      this.showLoading('加载服务数据...');
       return;
     }
 

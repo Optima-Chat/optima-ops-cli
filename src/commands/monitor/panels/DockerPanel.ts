@@ -44,7 +44,7 @@ export class DockerPanel extends BasePanel {
     const dockerStats = this.cache.getDocker(this.environment);
 
     if (!dockerStats || dockerStats.length === 0) {
-      this.showEmpty('无 Docker 数据');
+      this.showLoading('加载 Docker 数据...');
       return;
     }
 
