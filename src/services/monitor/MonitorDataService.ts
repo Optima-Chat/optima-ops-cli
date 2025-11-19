@@ -436,9 +436,35 @@ export class MonitorDataService {
   }
 
   /**
-   * 执行 SSH 命令
+   * 执行 SSH 命令（带重试）
    */
-  private async executeSSHCommand(host: string, command: string): Promise<string> {
+  private async executeSSHCommand(host: string, command: string, retries: number = 2): Promise<string> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await this.executeSSHCommandInternal(host, command);
+      } catch (error: any) {
+        // ECONNRESET 是临时性错误，可以重试
+        const isRetryable = error.message?.includes('ECONNRESET') ||
+                           error.message?.includes('ETIMEDOUT');
+
+        if (isRetryable && attempt < retries) {
+          // 等待一小段时间后重试
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          continue;
+        }
+
+        // 不可重试的错误或重试次数用尽，直接抛出
+        throw error;
+      }
+    }
+
+    throw new Error('SSH command failed after retries');
+  }
+
+  /**
+   * 执行 SSH 命令（内部实现）
+   */
+  private async executeSSHCommandInternal(host: string, command: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new SSH2Client();
 
@@ -498,6 +524,10 @@ export class MonitorDataService {
             message = `Connection refused by ${host}`;
           } else if (message.includes('ETIMEDOUT')) {
             message = `Connection timeout to ${host}`;
+          } else if (message.includes('ECONNRESET')) {
+            message = `Connection reset by ${host} (possibly due to host key change)`;
+          } else if (message.includes('EHOSTUNREACH')) {
+            message = `Host ${host} unreachable`;
           } else if (message.includes('All configured authentication methods failed')) {
             message = `SSH authentication failed for ${host}`;
           }
