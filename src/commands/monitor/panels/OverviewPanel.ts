@@ -201,7 +201,7 @@ export class OverviewPanel extends BasePanel {
         content += `   {green-fg}✓ 所有容器资源正常{/green-fg}\\n`;
       }
     } else {
-      content += '   {yellow-fg}加载中...{/yellow-fg}\\n`;
+      content += '   {yellow-fg}加载中...{/yellow-fg}\\n';
     }
 
     content += '\\n';
