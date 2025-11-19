@@ -221,8 +221,8 @@ export class MonitorDataService {
 
         // 解析内存 (e.g., "123.4MiB / 1.5GiB")
         const memParts = memStr?.split('/') || [];
-        const memUsed = this.parseMemory(memParts[0]?.trim() || '0');
-        const memTotal = this.parseMemory(memParts[1]?.trim() || '0');
+        const memoryUsed = this.parseMemory(memParts[0]?.trim() || '0');
+        const memoryTotal = this.parseMemory(memParts[1]?.trim() || '0');
 
         // 解析网络 (e.g., "1.2kB / 3.4kB")
         const netParts = netStr?.split('/') || [];
