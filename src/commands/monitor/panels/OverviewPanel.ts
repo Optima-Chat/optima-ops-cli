@@ -1,19 +1,23 @@
+import blessed from 'neo-blessed';
 import { BasePanel } from './BasePanel.js';
 import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
 import { BlueGreenService } from '../../../services/monitor/BlueGreenService.js';
+import { dashboardLogger } from '../../../utils/dashboard-logger.js';
+import fs from 'fs';
 
 /**
  * Overview Panel (Panel 0)
  *
- * 显示系统整体健康状态的简洁概览：
- * - 服务健康汇总（健康/降级/不健康数量）
- * - EC2 资源使用概览（CPU/内存/磁盘）
- * - Docker 容器概览（运行数量/资源告警）
- * - 蓝绿部署状态概览（当前流量分配）
+ * 左右分栏布局：
+ * - 左侧（60%）：系统整体健康状态概览
+ * - 右侧（40%）：实时错误日志滚动
  */
 export class OverviewPanel extends BasePanel {
   private dataService: MonitorDataService;
   private blueGreenService: BlueGreenService;
+  private leftBox: any;  // 左侧概览框
+  private rightBox: any; // 右侧日志框
+  private errorLogs: string[] = []; // 错误日志缓存
 
   constructor(
     screen: any,
@@ -24,6 +28,109 @@ export class OverviewPanel extends BasePanel {
     super(screen, config, cache, environment);
     this.dataService = new MonitorDataService(environment);
     this.blueGreenService = new BlueGreenService(environment);
+
+    // 隐藏 BasePanel 的默认 container
+    this.container.hide();
+
+    // 创建左侧概览框（60% 宽度）
+    this.leftBox = blessed.box({
+      parent: screen,
+      top: 3,
+      bottom: 2,
+      left: 0,
+      width: '60%',
+      tags: true,
+      border: {
+        type: 'line',
+      },
+      style: {
+        fg: '#cdd6f4',
+        bg: '#1e1e2e',
+        border: {
+          fg: '#94e2d5',
+        },
+      },
+      scrollable: true,
+      alwaysScroll: true,
+      label: ' 概览 ',
+    });
+
+    // 创建右侧日志框（40% 宽度）
+    this.rightBox = blessed.box({
+      parent: screen,
+      top: 3,
+      bottom: 2,
+      left: '60%',
+      width: '40%',
+      tags: true,
+      border: {
+        type: 'line',
+      },
+      style: {
+        fg: '#cdd6f4',
+        bg: '#1e1e2e',
+        border: {
+          fg: '#f38ba8', // 红色边框表示错误日志
+        },
+      },
+      scrollable: true,
+      alwaysScroll: true,
+      scrollbar: {
+        ch: '█',
+        style: {
+          bg: '#313244',
+          fg: '#f38ba8',
+        },
+      },
+      label: ' 错误日志 ',
+    });
+
+    // 默认隐藏两个框
+    this.leftBox.hide();
+    this.rightBox.hide();
+  }
+
+  /**
+   * 覆盖 BasePanel 的 show 方法
+   */
+  show(): void {
+    this.isVisible = true;
+    this.leftBox.show();
+    this.rightBox.show();
+    this.screen.render();
+    // 手动调用 startAutoRefresh（因为我们覆盖了 show）
+    this.startAutoRefresh();
+  }
+
+  /**
+   * 覆盖 BasePanel 的 hide 方法
+   */
+  hide(): void {
+    this.isVisible = false;
+    this.leftBox.hide();
+    this.rightBox.hide();
+    this.stopAutoRefresh();
+  }
+
+  /**
+   * 访问 BasePanel 的 private 方法（通过 any 类型转换）
+   */
+  private startAutoRefresh(): void {
+    (this as any).refresh().catch((error: any) => {
+      this.showError(`刷新失败: ${error.message}`);
+    });
+
+    const timer = setInterval(() => {
+      if (this.isVisible) {
+        (this as any).refresh().catch((error: any) => {
+          this.showError(`刷新失败: ${error.message}`);
+        });
+      }
+    }, this.config.refreshInterval);
+  }
+
+  private stopAutoRefresh(): void {
+    // BasePanel 会处理
   }
 
   async refresh(): Promise<void> {
@@ -85,6 +192,15 @@ export class OverviewPanel extends BasePanel {
   }
 
   render(): void {
+    this.renderLeftPanel();
+    this.renderRightPanel();
+    this.screen.render();
+  }
+
+  /**
+   * 渲染左侧概览面板
+   */
+  private renderLeftPanel(): void {
     const services = this.cache.getServices(this.environment);
     const ec2 = this.cache.getEC2(this.environment);
     const docker = this.cache.getDocker(this.environment);
@@ -234,7 +350,58 @@ export class OverviewPanel extends BasePanel {
     // === 提示信息 ===
     content += ' {gray-fg}提示: 按 [1-4] 查看详细信息{/gray-fg}\n';
 
-    this.container.setContent(content);
-    this.screen.render();
+    this.leftBox.setContent(content);
+  }
+
+  /**
+   * 渲染右侧错误日志面板
+   */
+  private renderRightPanel(): void {
+    try {
+      const logPath = dashboardLogger.getLogPath();
+
+      // 读取日志文件最后 100 行
+      if (fs.existsSync(logPath)) {
+        const logContent = fs.readFileSync(logPath, 'utf-8');
+        const lines = logContent.split('\n');
+        const recentLines = lines.slice(-100); // 最近 100 行
+
+        // 只显示包含错误/警告的行
+        const errorLines = recentLines.filter(line =>
+          line.includes('error') ||
+          line.includes('ERROR') ||
+          line.includes('failed') ||
+          line.includes('失败') ||
+          line.includes('timeout') ||
+          line.includes('Timed out') ||
+          line.includes('离线') ||
+          line.includes('不健康')
+        );
+
+        if (errorLines.length > 0) {
+          let logText = ' {red-fg}{bold}最近错误（最多 100 条）{/bold}{/red-fg}\n\n';
+
+          // 格式化每一行，提取时间戳和消息
+          errorLines.forEach(line => {
+            // 简化日志显示（移除冗长的部分）
+            const simplified = line
+              .replace(/^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2}).*?\s+/, '$1 ') // 简化时间戳
+              .substring(0, 80); // 限制长度避免换行混乱
+
+            if (simplified.trim()) {
+              logText += ` {gray-fg}${simplified}{/gray-fg}\n`;
+            }
+          });
+
+          this.rightBox.setContent(logText);
+        } else {
+          this.rightBox.setContent(' {green-fg}✓ 无错误日志{/green-fg}\n\n {gray-fg}系统运行正常{/gray-fg}');
+        }
+      } else {
+        this.rightBox.setContent(' {yellow-fg}⚠ 日志文件不存在{/yellow-fg}');
+      }
+    } catch (error: any) {
+      this.rightBox.setContent(` {red-fg}读取日志失败: ${error.message}{/red-fg}`);
+    }
   }
 }
