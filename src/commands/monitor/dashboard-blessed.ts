@@ -109,7 +109,7 @@ export const dashboardBlessedCommand = new Command('dashboard-blessed')
 
           return {
             health,
-            responseTime,
+            responseTime: health === 'healthy' ? responseTime : 0, // 不健康时不显示响应时间
             containerStatus: health === 'healthy' ? 'running' : 'stopped',
           };
         } catch (err) {
