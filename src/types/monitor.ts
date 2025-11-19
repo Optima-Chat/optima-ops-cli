@@ -11,6 +11,12 @@ export interface EnvironmentHealth {
   responseTime: number; // ms
   containerStatus: string;
   uptime?: string; // 容器运行时长
+  // 构建信息（从容器 labels 读取）
+  buildCommit?: string; // Git commit SHA
+  buildBranch?: string; // Git 分支
+  buildTag?: string; // Git tag（如 v1.2.3）
+  buildWorkflow?: string; // GitHub workflow 名称
+  buildTime?: string; // 构建时间
   error?: string;
 }
 

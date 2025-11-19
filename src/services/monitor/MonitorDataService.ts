@@ -203,8 +203,8 @@ export class MonitorDataService {
     host: string
   ): Promise<EnvironmentHealth> {
     try {
-      // 并行：HTTP 健康检查 + 容器运行时长
-      const [httpResult, uptimeResult] = await Promise.all([
+      // 并行：HTTP 健康检查 + 容器运行时长 + 构建信息
+      const [httpResult, containerInfo] = await Promise.all([
         // HTTP 健康检查
         (async () => {
           try {
@@ -223,23 +223,11 @@ export class MonitorDataService {
           }
         })(),
 
-        // 容器运行时长
+        // 容器运行时长 + 构建信息（复用 fetchContainerDetails）
         (async () => {
           try {
-            const result = await this.executeSSHCommand(
-              host,
-              `docker inspect ${containerName} --format='{{.State.Status}}|{{.State.StartedAt}}'`
-            );
-            const [status, startedAt] = result.trim().split('|');
-
-            if (status === 'running' && startedAt) {
-              const start = new Date(startedAt);
-              const now = new Date();
-              const diffMs = now.getTime() - start.getTime();
-              return { status, uptime: this.formatUptime(diffMs) };
-            }
-
-            return { status: status || 'unknown', uptime: undefined };
+            const details = await this.fetchContainerDetails(host, containerName);
+            return details;
           } catch (error) {
             return { status: 'unknown', uptime: undefined };
           }
@@ -249,8 +237,13 @@ export class MonitorDataService {
       return {
         health: httpResult.health,
         responseTime: httpResult.health === 'healthy' ? httpResult.responseTime : 0,
-        containerStatus: uptimeResult.status,
-        uptime: uptimeResult.uptime,
+        containerStatus: containerInfo.status || 'unknown',
+        uptime: containerInfo.uptime,
+        buildCommit: containerInfo.buildCommit,
+        buildBranch: containerInfo.buildBranch,
+        buildTag: containerInfo.buildTag,
+        buildWorkflow: containerInfo.buildWorkflow,
+        buildTime: containerInfo.buildTime,
       };
     } catch (error: any) {
       return {

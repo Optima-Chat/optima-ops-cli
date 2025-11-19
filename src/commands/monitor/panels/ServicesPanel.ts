@@ -49,7 +49,7 @@ export class ServicesPanel extends BasePanel {
 
     // === 核心服务 ===
     content += ` {cyan-fg}{bold}核心服务{/bold}{/cyan-fg} (${coreServices.length})\n`;
-    content += ' {bold}服务               Prod          Stage{/bold}\n';
+    content += ' {bold}服务               Prod                            Stage{/bold}\n';
 
     for (const svc of coreServices) {
       const name = svc.name.padEnd(18);
@@ -58,7 +58,8 @@ export class ServicesPanel extends BasePanel {
       const prodIcon = this.getHealthIcon(svc.prod.health);
       const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
       const prodUptime = svc.prod.uptime || '-';
-      const prodDisplay = `${prodIcon} ${prodTime.padEnd(6)} ${prodUptime.padEnd(10)}`;
+      const prodVersion = this.getVersionInfo(svc.prod);
+      const prodDisplay = `${prodIcon} ${prodTime.padEnd(6)} ${prodUptime.padEnd(10)} ${prodVersion.padEnd(14)}`;
 
       // Stage 状态
       let stageDisplay = '';
@@ -66,7 +67,8 @@ export class ServicesPanel extends BasePanel {
         const stageIcon = this.getHealthIcon(svc.stage.health);
         const stageTime = svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
         const stageUptime = svc.stage.uptime || '-';
-        stageDisplay = `${stageIcon} ${stageTime.padEnd(6)} ${stageUptime.padEnd(10)}`;
+        const stageVersion = this.getVersionInfo(svc.stage);
+        stageDisplay = `${stageIcon} ${stageTime.padEnd(6)} ${stageUptime.padEnd(10)} ${stageVersion.padEnd(14)}`;
       } else {
         stageDisplay = '{gray-fg}-{/gray-fg}';
       }
@@ -86,7 +88,7 @@ export class ServicesPanel extends BasePanel {
 
     // === MCP 工具服务 ===
     content += ` {cyan-fg}{bold}MCP 工具{/bold}{/cyan-fg} (${mcpServices.length})\n`;
-    content += ' {bold}服务               Prod          Stage{/bold}\n';
+    content += ' {bold}服务               Prod                            Stage{/bold}\n';
 
     for (const svc of mcpServices) {
       const name = svc.name.padEnd(18);
@@ -95,7 +97,8 @@ export class ServicesPanel extends BasePanel {
       const prodIcon = this.getHealthIcon(svc.prod.health);
       const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
       const prodUptime = svc.prod.uptime || '-';
-      const prodDisplay = `${prodIcon} ${prodTime.padEnd(6)} ${prodUptime.padEnd(10)}`;
+      const prodVersion = this.getVersionInfo(svc.prod);
+      const prodDisplay = `${prodIcon} ${prodTime.padEnd(6)} ${prodUptime.padEnd(10)} ${prodVersion.padEnd(14)}`;
 
       // Stage 状态
       let stageDisplay = '';
@@ -103,7 +106,8 @@ export class ServicesPanel extends BasePanel {
         const stageIcon = this.getHealthIcon(svc.stage.health);
         const stageTime = svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
         const stageUptime = svc.stage.uptime || '-';
-        stageDisplay = `${stageIcon} ${stageTime.padEnd(6)} ${stageUptime.padEnd(10)}`;
+        const stageVersion = this.getVersionInfo(svc.stage);
+        stageDisplay = `${stageIcon} ${stageTime.padEnd(6)} ${stageUptime.padEnd(10)} ${stageVersion.padEnd(14)}`;
       } else {
         stageDisplay = '{gray-fg}-{/gray-fg}';
       }
@@ -147,6 +151,21 @@ export class ServicesPanel extends BasePanel {
       return '{yellow-fg}⚠{/yellow-fg}';
     } else {
       return '{red-fg}✗{/red-fg}';
+    }
+  }
+
+  /**
+   * 获取版本信息（优先级：tag > branch > commit）
+   */
+  private getVersionInfo(env: any): string {
+    if (env.buildTag) {
+      return `{green-fg}${env.buildTag}{/green-fg}`;
+    } else if (env.buildBranch) {
+      return `{blue-fg}${env.buildBranch}{/blue-fg}`;
+    } else if (env.buildCommit) {
+      return `{cyan-fg}${env.buildCommit}{/cyan-fg}`;
+    } else {
+      return '{gray-fg}-{/gray-fg}';
     }
   }
 }
