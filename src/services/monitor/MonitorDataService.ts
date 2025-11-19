@@ -54,8 +54,8 @@ export class MonitorDataService {
 
         // 并行获取两个环境的状态
         const [prod, stage] = await Promise.all([
-          this.fetchEnvironmentHealth(prodUrl),
-          this.fetchEnvironmentHealth(stageUrl),
+          this.fetchEnvironmentHealth(prodUrl, svc.containerName.prod, 'ec2-prod.optima.shop'),
+          this.fetchEnvironmentHealth(stageUrl, svc.containerName.stage, 'ec2-stage.optima.shop'),
         ]);
 
         return {
@@ -73,27 +73,62 @@ export class MonitorDataService {
   /**
    * 获取单个环境的健康状态
    */
-  private async fetchEnvironmentHealth(healthEndpoint: string): Promise<EnvironmentHealth> {
+  private async fetchEnvironmentHealth(
+    healthEndpoint: string,
+    containerName: string,
+    host: string
+  ): Promise<EnvironmentHealth> {
     try {
-      const startTime = Date.now();
-      const response = await axios.get(healthEndpoint, {
-        timeout: 3000,
-        maxRedirects: 0, // stage MCP 307 必须返回给调用方
-        validateStatus: () => true, // 接受所有状态码，不抛异常
-      });
-      const responseTime = Date.now() - startTime;
+      // 并行：HTTP 健康检查 + 容器运行时长
+      const [httpResult, uptimeResult] = await Promise.all([
+        // HTTP 健康检查
+        (async () => {
+          try {
+            const startTime = Date.now();
+            const response = await axios.get(healthEndpoint, {
+              timeout: 3000,
+              maxRedirects: 0,
+              validateStatus: () => true,
+            });
+            const responseTime = Date.now() - startTime;
+            const health: 'healthy' | 'degraded' | 'unhealthy' =
+              response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
+            return { health, responseTime };
+          } catch (error: any) {
+            return { health: 'unhealthy' as const, responseTime: 0 };
+          }
+        })(),
 
-      // 只有 200 和 404 为健康，其他所有状态（包括 307, 502 等）都为不健康
-      const health: 'healthy' | 'degraded' | 'unhealthy' =
-        response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
+        // 容器运行时长
+        (async () => {
+          try {
+            const result = await this.executeSSHCommand(
+              host,
+              `docker inspect ${containerName} --format='{{.State.Status}}|{{.State.StartedAt}}'`
+            );
+            const [status, startedAt] = result.trim().split('|');
+
+            if (status === 'running' && startedAt) {
+              const start = new Date(startedAt);
+              const now = new Date();
+              const diffMs = now.getTime() - start.getTime();
+              return { status, uptime: this.formatUptime(diffMs) };
+            }
+
+            return { status: status || 'unknown', uptime: undefined };
+          } catch (error) {
+            return { status: 'unknown', uptime: undefined };
+          }
+        })(),
+      ]);
 
       return {
-        health,
-        responseTime: health === 'healthy' ? responseTime : 0, // 不健康时不显示响应时间
-        containerStatus: health === 'healthy' ? 'running' : 'stopped',
+        health: httpResult.health,
+        responseTime: httpResult.health === 'healthy' ? httpResult.responseTime : 0,
+        containerStatus: uptimeResult.status,
+        uptime: uptimeResult.uptime,
       };
     } catch (error: any) {
-      // 网络错误、超时等
       return {
         health: 'unhealthy',
         responseTime: 0,

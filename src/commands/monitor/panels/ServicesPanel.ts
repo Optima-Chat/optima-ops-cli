@@ -49,22 +49,24 @@ export class ServicesPanel extends BasePanel {
 
     // === 核心服务 ===
     content += ` {cyan-fg}{bold}核心服务{/bold}{/cyan-fg} (${coreServices.length})\n`;
-    content += ' {bold}服务               Prod      Stage{/bold}\n';
+    content += ' {bold}服务               状态  响应    运行时长      环境{/bold}\n';
 
     for (const svc of coreServices) {
       const name = svc.name.padEnd(18);
 
       // Prod 状态
       const prodIcon = this.getHealthIcon(svc.prod.health);
-      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
-      const prodStatus = `${prodIcon} ${prodTime.padEnd(6)}`;
+      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms`.padEnd(6) : '-'.padEnd(6);
+      const prodUptime = (svc.prod.uptime || '-').padEnd(12);
+      content += ` ${name} ${prodIcon}  ${prodTime}  ${prodUptime}  Prod\n`;
 
       // Stage 状态
-      const stageIcon = svc.stage ? this.getHealthIcon(svc.stage.health) : '{gray-fg}-{/gray-fg}';
-      const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
-      const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
-
-      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
+      if (svc.stage) {
+        const stageIcon = this.getHealthIcon(svc.stage.health);
+        const stageTime = svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms`.padEnd(6) : '-'.padEnd(6);
+        const stageUptime = (svc.stage.uptime || '-').padEnd(12);
+        content += ` ${''.padEnd(18)} ${stageIcon}  ${stageTime}  ${stageUptime}  Stage\n`;
+      }
 
       // 显示错误信息
       if (svc.prod.health === 'unhealthy' && svc.prod.error) {
@@ -76,22 +78,24 @@ export class ServicesPanel extends BasePanel {
 
     // === MCP 工具服务 ===
     content += ` {cyan-fg}{bold}MCP 工具{/bold}{/cyan-fg} (${mcpServices.length})\n`;
-    content += ' {bold}服务               Prod      Stage{/bold}\n';
+    content += ' {bold}服务               状态  响应    运行时长      环境{/bold}\n';
 
     for (const svc of mcpServices) {
       const name = svc.name.padEnd(18);
 
       // Prod 状态
       const prodIcon = this.getHealthIcon(svc.prod.health);
-      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms` : '-';
-      const prodStatus = `${prodIcon} ${prodTime.padEnd(6)}`;
+      const prodTime = svc.prod.responseTime > 0 ? `${svc.prod.responseTime}ms`.padEnd(6) : '-'.padEnd(6);
+      const prodUptime = (svc.prod.uptime || '-').padEnd(12);
+      content += ` ${name} ${prodIcon}  ${prodTime}  ${prodUptime}  Prod\n`;
 
       // Stage 状态
-      const stageIcon = svc.stage ? this.getHealthIcon(svc.stage.health) : '{gray-fg}-{/gray-fg}';
-      const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
-      const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
-
-      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
+      if (svc.stage) {
+        const stageIcon = this.getHealthIcon(svc.stage.health);
+        const stageTime = svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms`.padEnd(6) : '-'.padEnd(6);
+        const stageUptime = (svc.stage.uptime || '-').padEnd(12);
+        content += ` ${''.padEnd(18)} ${stageIcon}  ${stageTime}  ${stageUptime}  Stage\n`;
+      }
 
       // 显示错误信息
       if (svc.prod.health === 'unhealthy' && svc.prod.error) {

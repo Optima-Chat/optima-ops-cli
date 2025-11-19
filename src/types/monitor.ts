@@ -10,6 +10,7 @@ export interface EnvironmentHealth {
   health: 'healthy' | 'degraded' | 'unhealthy';
   responseTime: number; // ms
   containerStatus: string;
+  uptime?: string; // 容器运行时长
   error?: string;
 }
 

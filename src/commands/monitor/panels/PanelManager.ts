@@ -205,7 +205,7 @@ export class PanelManager {
       left: 0,
       width: '100%',
       height: 3,
-      content: ' {bold}面板{/bold}: [0-4]=跳转 [Tab/H/L]=切换 | {bold}滚动{/bold}: [↑↓/jk]=逐行 [PgUp/PgDn]=快速 [鼠标滚轮] | {bold}操作{/bold}: [r]=刷新 [q]=退出',
+      content: ' {bold}面板{/bold}: [0-4]=跳转 [Tab/←→/hl]=切换 | {bold}滚动{/bold}: [↑↓/jk]=逐行 [PgUp/PgDn]=快速 [鼠标滚轮] | {bold}操作{/bold}: [r]=刷新 [q]=退出',
       tags: true,
       border: {
         type: 'single',
@@ -252,12 +252,21 @@ export class PanelManager {
       this.refreshCurrentPanel();
     });
 
-    // H/L（大写）：面板导航
-    this.screen.key(['S-h'], () => {
+    // 左右箭头：面板导航（在 screen 级别捕获，优先级高于 container）
+    this.screen.key(['left'], () => {
       this.switchToPrevious();
     });
 
-    this.screen.key(['S-l'], () => {
+    this.screen.key(['right'], () => {
+      this.switchToNext();
+    });
+
+    // H/L（大写）：面板导航
+    this.screen.key(['S-h', 'h'], () => {
+      this.switchToPrevious();
+    });
+
+    this.screen.key(['S-l', 'l'], () => {
       this.switchToNext();
     });
   }
