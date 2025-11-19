@@ -1,4 +1,6 @@
 import { BasePanel } from './BasePanel.js';
+import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
+import { BlueGreenService } from '../../../services/monitor/BlueGreenService.js';
 
 /**
  * Overview Panel (Panel 0)
@@ -10,25 +12,75 @@ import { BasePanel } from './BasePanel.js';
  * - 蓝绿部署状态概览（当前流量分配）
  */
 export class OverviewPanel extends BasePanel {
+  private dataService: MonitorDataService;
+  private blueGreenService: BlueGreenService;
+
+  constructor(
+    screen: any,
+    config: any,
+    cache: any,
+    environment: string
+  ) {
+    super(screen, config, cache, environment);
+    this.dataService = new MonitorDataService(environment);
+    this.blueGreenService = new BlueGreenService(environment);
+  }
+
   async refresh(): Promise<void> {
     this.showLoading('刷新概览数据...');
 
     try {
-      // 从缓存获取或触发刷新
-      const services = this.cache.getServices(this.environment);
-      const ec2 = this.cache.getEC2(this.environment);
-      const docker = this.cache.getDocker(this.environment);
-      const blueGreen = this.cache.getBlueGreen(this.environment);
+      // 并行获取所有数据（首次加载或刷新）
+      const [services, ec2, docker, blueGreen] = await Promise.all([
+        this.fetchOrGetServices(),
+        this.fetchOrGetEC2(),
+        this.fetchOrGetDocker(),
+        this.fetchOrGetBlueGreen(),
+      ]);
 
-      // 如果缓存为空，显示提示（实际数据由各详细 Panel 加载）
-      if (!services && !ec2 && !docker && !blueGreen) {
-        this.showEmpty('数据加载中，请稍候...');
-        return;
-      }
+      // 更新缓存
+      if (services) this.cache.setServices(this.environment, services);
+      if (ec2) this.cache.setEC2(this.environment, ec2);
+      if (docker) this.cache.setDocker(this.environment, docker);
+      if (blueGreen) this.cache.setBlueGreen(this.environment, blueGreen);
 
       this.render();
     } catch (error: any) {
       this.showError(error.message);
+    }
+  }
+
+  private async fetchOrGetServices() {
+    // 如果缓存有效，直接返回缓存
+    if (this.cache.isValid(`services:${this.environment}`)) {
+      return this.cache.getServices(this.environment);
+    }
+    // 否则获取新数据
+    return await this.dataService.fetchServicesHealth();
+  }
+
+  private async fetchOrGetEC2() {
+    if (this.cache.isValid(`ec2:${this.environment}`)) {
+      return this.cache.getEC2(this.environment);
+    }
+    return await this.dataService.fetchEC2Stats();
+  }
+
+  private async fetchOrGetDocker() {
+    if (this.cache.isValid(`docker:${this.environment}`)) {
+      return this.cache.getDocker(this.environment);
+    }
+    return await this.dataService.fetchDockerStats();
+  }
+
+  private async fetchOrGetBlueGreen() {
+    if (this.cache.isValid(`bluegreen:${this.environment}`)) {
+      return this.cache.getBlueGreen(this.environment);
+    }
+    try {
+      return await this.blueGreenService.getBlueGreenDeployments();
+    } catch {
+      return [];
     }
   }
 
