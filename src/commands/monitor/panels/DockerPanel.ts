@@ -36,6 +36,7 @@ export class DockerPanel extends BasePanel {
 
   render(): void {
     const dockerStats = this.cache.getDocker(this.environment);
+    const dockerHistory = this.cache.getDockerHistory(this.environment);
 
     if (!dockerStats || dockerStats.length === 0) {
       this.showLoading('加载 Docker 数据...');
@@ -85,7 +86,7 @@ export class DockerPanel extends BasePanel {
         content += '   {gray-fg}无运行中的容器{/gray-fg}\n\n';
       } else {
         // 表格头部
-        content += ' {bold}容器                CPU   内存      版本/分支        运行时长  构建{/bold}\n';
+        content += ' {bold}容器                CPU   内存          版本/分支        运行时长  构建{/bold}\n';
 
         // 容器列表（紧凑表格格式）
         for (const stat of envData.stats) {
@@ -99,11 +100,15 @@ export class DockerPanel extends BasePanel {
           const cpuColor = stat.cpuPercent > 80 ? 'red' : stat.cpuPercent > 50 ? 'yellow' : 'green';
           const cpuDisplay = `{${cpuColor}-fg}${cpu.padStart(5)}{/${cpuColor}-fg}`;
 
-          // 内存
+          // 内存（显示绝对值 + 趋势）
           const memPercent =
             stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
           const memColor = parseFloat(memPercent) > 80 ? 'red' : parseFloat(memPercent) > 50 ? 'yellow' : 'green';
-          const memDisplay = `{${memColor}-fg}${memPercent.padStart(3)}%{/${memColor}-fg}`;
+
+          // 计算历史平均内存使用（用于趋势）
+          const memTrend = this.calculateMemoryTrend(stat.container, envData.environment, dockerHistory);
+          const memAbsolute = this.formatBytes(stat.memoryUsed);
+          const memDisplay = `{${memColor}-fg}${memPercent.padStart(3)}%{/${memColor}-fg} ${memAbsolute.padEnd(4)} ${memTrend}`;
 
           // 版本/分支（优先显示 tag，其次 branch）
           let versionInfo = '';
@@ -178,5 +183,61 @@ export class DockerPanel extends BasePanel {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     const value = bytes / Math.pow(k, i);
     return value.toFixed(1) + sizes[i];
+  }
+
+  /**
+   * 计算内存趋势（当前值 vs 历史平均值）
+   *
+   * @param containerName 容器名称
+   * @param environment 环境
+   * @param history 历史数据
+   * @returns 趋势指示器：↑ (上升), ↓ (下降), → (稳定), - (无历史数据)
+   */
+  private calculateMemoryTrend(
+    containerName: string,
+    environment: string,
+    history: Array<{ data: any; timestamp: Date }>
+  ): string {
+    // 至少需要 3 个历史数据点才计算趋势
+    if (!history || history.length < 3) {
+      return '{gray-fg}-{/gray-fg}';
+    }
+
+    // 找到该容器在历史数据中的内存使用记录
+    const memoryHistory: number[] = [];
+
+    for (const point of history) {
+      const envData = point.data.find((d: any) => d.environment === environment);
+      if (envData && envData.stats) {
+        const containerStat = envData.stats.find((s: any) => s.container === containerName);
+        if (containerStat && containerStat.memoryUsed > 0) {
+          memoryHistory.push(containerStat.memoryUsed);
+        }
+      }
+    }
+
+    // 至少需要 3 个数据点
+    if (memoryHistory.length < 3) {
+      return '{gray-fg}-{/gray-fg}';
+    }
+
+    // 计算历史平均值（除了最新的值）
+    const historicalAvg =
+      memoryHistory.slice(0, -1).reduce((sum, val) => sum + val, 0) / (memoryHistory.length - 1);
+
+    // 当前值
+    const current = memoryHistory[memoryHistory.length - 1];
+
+    // 计算差异百分比
+    const diffPercent = ((current - historicalAvg) / historicalAvg) * 100;
+
+    // 趋势判断（±5% 以内视为稳定）
+    if (diffPercent > 5) {
+      return '{red-fg}↑{/red-fg}'; // 上升
+    } else if (diffPercent < -5) {
+      return '{green-fg}↓{/green-fg}'; // 下降
+    } else {
+      return '{gray-fg}→{/gray-fg}'; // 稳定
+    }
   }
 }

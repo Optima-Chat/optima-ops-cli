@@ -289,12 +289,13 @@ export class MonitorDataService {
     const uptimeResult = await this.executeSSHCommand(host, 'uptime -p');
     const uptime = uptimeResult.trim();
 
-    // CPU 使用率（通过 top 获取，1秒采样）
-    const cpuResult = await this.executeSSHCommand(
-      host,
-      'top -bn2 -d 1 | grep "Cpu(s)" | tail -n 1 | awk \'{print $2}\' | cut -d\'%\' -f1'
-    );
-    const cpuUsage = parseFloat(cpuResult.trim()) || 0;
+    // CPU 使用率（通过 /proc/stat 计算，避免 top 的内存开销）
+    // 读取两次 /proc/stat，间隔 1 秒计算 CPU 使用率
+    const cpu1 = await this.executeSSHCommand(host, 'cat /proc/stat | grep "^cpu "');
+    await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒
+    const cpu2 = await this.executeSSHCommand(host, 'cat /proc/stat | grep "^cpu "');
+
+    const cpuUsage = this.calculateCPUUsage(cpu1.trim(), cpu2.trim());
 
     // 内存使用
     const memResult = await this.executeSSHCommand(host, 'free -m | grep Mem:');
@@ -531,6 +532,44 @@ export class MonitorDataService {
   /**
    * 格式化运行时长
    */
+  /**
+   * 计算 CPU 使用率（从 /proc/stat）
+   *
+   * /proc/stat 格式：cpu  user nice system idle iowait irq softirq steal guest guest_nice
+   *
+   * @param stat1 第一次读取的 /proc/stat cpu 行
+   * @param stat2 第二次读取的 /proc/stat cpu 行（1秒后）
+   * @returns CPU 使用率百分比
+   */
+  private calculateCPUUsage(stat1: string, stat2: string): number {
+    try {
+      // 解析 /proc/stat 输出
+      const parse = (line: string) => {
+        const parts = line.split(/\s+/).slice(1).map(Number); // 跳过 "cpu" 标签
+        const [user, nice, system, idle, iowait, irq, softirq, steal] = parts;
+
+        const idleTime = idle + iowait;
+        const totalTime = user + nice + system + idle + iowait + irq + softirq + steal;
+
+        return { idleTime, totalTime };
+      };
+
+      const cpu1 = parse(stat1);
+      const cpu2 = parse(stat2);
+
+      // 计算差值
+      const idleDelta = cpu2.idleTime - cpu1.idleTime;
+      const totalDelta = cpu2.totalTime - cpu1.totalTime;
+
+      // CPU 使用率 = (1 - idle/total) * 100
+      const usage = totalDelta > 0 ? ((totalDelta - idleDelta) / totalDelta) * 100 : 0;
+
+      return Math.max(0, Math.min(100, usage)); // 限制在 0-100 范围
+    } catch (error) {
+      return 0; // 解析失败返回 0
+    }
+  }
+
   private formatUptime(milliseconds: number): string {
     const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
