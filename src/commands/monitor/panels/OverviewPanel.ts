@@ -126,6 +126,20 @@ export class OverviewPanel extends BasePanel {
         };
         const envLabel = envLabels[stat.environment] || stat.environment;
 
+        // 检查是否离线
+        if (stat.offline) {
+          content += `   {bold}${envLabel}{/bold} {red-fg}[离线]{/red-fg}\\n`;
+          content += `     {gray-fg}${stat.error || 'SSH 连接超时'}{/gray-fg}\\n`;
+          continue;
+        }
+
+        // 检查其他错误
+        if (stat.error) {
+          content += `   {bold}${envLabel}{/bold} {yellow-fg}[错误]{/yellow-fg}\\n`;
+          content += `     {gray-fg}${stat.error}{/gray-fg}\\n`;
+          continue;
+        }
+
         // 内存使用率
         const memPercent = stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
         const memColor = parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
@@ -152,8 +166,20 @@ export class OverviewPanel extends BasePanel {
       let totalContainers = 0;
       let highCpuCount = 0;
       let highMemCount = 0;
+      let offlineEnvs: string[] = [];
 
       for (const envData of docker) {
+        // 检查离线环境
+        if (envData.offline) {
+          const envLabels: Record<string, string> = {
+            production: 'Production',
+            stage: 'Stage',
+            shared: 'Shared',
+          };
+          offlineEnvs.push(envLabels[envData.environment] || envData.environment);
+          continue;
+        }
+
         totalContainers += envData.stats.length;
         for (const stat of envData.stats) {
           if (stat.cpuPercent > 80) highCpuCount++;
@@ -168,11 +194,14 @@ export class OverviewPanel extends BasePanel {
       if (highMemCount > 0) {
         content += `   {red-fg}⚠ 内存高使用: ${highMemCount} 个容器{/red-fg}\\n`;
       }
-      if (highCpuCount === 0 && highMemCount === 0) {
+      if (offlineEnvs.length > 0) {
+        content += `   {red-fg}⚠ 离线环境: ${offlineEnvs.join(', ')}{/red-fg}\\n`;
+      }
+      if (highCpuCount === 0 && highMemCount === 0 && offlineEnvs.length === 0) {
         content += `   {green-fg}✓ 所有容器资源正常{/green-fg}\\n`;
       }
     } else {
-      content += '   {yellow-fg}加载中...{/yellow-fg}\\n';
+      content += '   {yellow-fg}加载中...{/yellow-fg}\\n`;
     }
 
     content += '\\n';

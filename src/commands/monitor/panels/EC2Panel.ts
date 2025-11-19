@@ -58,7 +58,33 @@ export class EC2Panel extends BasePanel {
       const envLabel = envLabels[stat.environment] || stat.environment;
 
       // 环境标题
-      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg}\\n`;
+      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg}`;
+
+      // 检查离线状态
+      if (stat.offline) {
+        content += ' {red-fg}[离线]{/red-fg}\\n';
+        content += `   {gray-fg}${stat.error || 'SSH 连接超时，实例可能已关闭'}{/gray-fg}\\n\\n`;
+
+        // 分隔线（不是最后一个环境时）
+        if (ec2Stats.indexOf(stat) < ec2Stats.length - 1) {
+          content += '   ' + '─'.repeat(70) + '\\n\\n';
+        }
+        continue;
+      }
+
+      // 检查其他错误
+      if (stat.error) {
+        content += ' {yellow-fg}[错误]{/yellow-fg}\\n';
+        content += `   {gray-fg}${stat.error}{/gray-fg}\\n\\n`;
+
+        // 分隔线（不是最后一个环境时）
+        if (ec2Stats.indexOf(stat) < ec2Stats.length - 1) {
+          content += '   ' + '─'.repeat(70) + '\\n\\n';
+        }
+        continue;
+      }
+
+      content += '\\n';
 
       // 实例信息
       content += `   {bold}实例类型{/bold}: ${stat.instanceType}\\n`;

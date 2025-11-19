@@ -59,6 +59,30 @@ export class DockerPanel extends BasePanel {
       };
       const envLabel = envLabels[envData.environment] || envData.environment;
 
+      // 检查离线状态
+      if (envData.offline) {
+        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {red-fg}[离线]{/red-fg}\\n`;
+        content += `   {gray-fg}${envData.error || 'SSH 连接超时，实例可能已关闭'}{/gray-fg}\\n\\n`;
+
+        // 分隔线（不是最后一个环境时）
+        if (dockerStats.indexOf(envData) < dockerStats.length - 1) {
+          content += '   ' + '─'.repeat(70) + '\\n\\n';
+        }
+        continue;
+      }
+
+      // 检查其他错误
+      if (envData.error) {
+        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {yellow-fg}[错误]{/yellow-fg}\\n`;
+        content += `   {gray-fg}${envData.error}{/gray-fg}\\n\\n`;
+
+        // 分隔线（不是最后一个环境时）
+        if (dockerStats.indexOf(envData) < dockerStats.length - 1) {
+          content += '   ' + '─'.repeat(70) + '\\n\\n';
+        }
+        continue;
+      }
+
       // 环境标题
       content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} (${envData.stats.length} 容器)\\n`;
       content += ' {bold}容器                             CPU    内存       网络{/bold}\\n';

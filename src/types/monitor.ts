@@ -51,6 +51,8 @@ export interface ContainerStats {
 export interface DockerStats {
   environment: 'production' | 'stage' | 'shared';
   stats: ContainerStats[];
+  error?: string; // 获取失败时的错误信息
+  offline?: boolean; // 标记环境是否离线
 }
 
 /**
@@ -77,6 +79,8 @@ export interface EC2Stats {
   diskTotal: number; // GB (Root 卷)
   disks?: DiskStats[]; // 所有磁盘分区
   uptime: string;
+  error?: string; // 获取失败时的错误信息
+  offline?: boolean; // 标记环境是否离线
 }
 
 /**

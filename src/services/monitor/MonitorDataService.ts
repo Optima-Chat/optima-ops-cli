@@ -114,6 +114,7 @@ export class MonitorDataService {
       this.fetchEC2StatsForHost('13.251.46.219', 'shared'),
     ]);
 
+    // 返回所有结果，包括失败的（带 error 标记）
     return results.filter((r): r is EC2Stats => r !== null);
   }
 
@@ -175,7 +176,21 @@ export class MonitorDataService {
       };
     } catch (error: any) {
       console.error(`获取 ${environment} EC2 数据失败:`, error.message);
-      return null;
+
+      // 返回错误状态而不是 null
+      const isTimeout = error.message?.includes('Timed out') || error.message?.includes('timeout');
+      return {
+        environment,
+        instanceId: 'unknown',
+        instanceType: 'unknown',
+        memoryUsed: 0,
+        memoryTotal: 0,
+        diskUsed: 0,
+        diskTotal: 0,
+        uptime: 'unknown',
+        error: error.message,
+        offline: isTimeout, // SSH 超时判定为离线
+      };
     }
   }
 
@@ -184,26 +199,27 @@ export class MonitorDataService {
    * 注意：总是获取所有环境（production + stage + shared）
    */
   async fetchDockerStats(): Promise<DockerStats[]> {
-    const [prodStats, stageStats, sharedStats] = await Promise.all([
+    const [prodResult, stageResult, sharedResult] = await Promise.all([
       this.fetchDockerStatsForHost('ec2-prod.optima.shop', 'production'),
       this.fetchDockerStatsForHost('ec2-stage.optima.shop', 'stage'),
       this.fetchDockerStatsForHost('13.251.46.219', 'shared'),
     ]);
 
     return [
-      { environment: 'production', stats: prodStats },
-      { environment: 'stage', stats: stageStats },
-      { environment: 'shared', stats: sharedStats },
+      { environment: 'production', ...prodResult },
+      { environment: 'stage', ...stageResult },
+      { environment: 'shared', ...sharedResult },
     ];
   }
 
   /**
    * 获取单个主机的 Docker 容器资源
+   * 返回值包含 stats 和可能的 error/offline 标记
    */
   private async fetchDockerStatsForHost(
     host: string,
     environment: 'production' | 'stage' | 'shared'
-  ): Promise<ContainerStats[]> {
+  ): Promise<{ stats: ContainerStats[]; error?: string; offline?: boolean }> {
     try {
     const result = await this.executeSSHCommand(
       host,
@@ -239,10 +255,15 @@ export class MonitorDataService {
         };
       });
 
-      return stats;
+      return { stats };
     } catch (error: any) {
       console.error(`获取 ${environment} Docker 数据失败:`, error.message);
-      return [];
+      const isTimeout = error.message?.includes('Timed out') || error.message?.includes('timeout');
+      return {
+        stats: [],
+        error: error.message,
+        offline: isTimeout,
+      };
     }
   }
 
