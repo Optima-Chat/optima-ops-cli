@@ -33,25 +33,39 @@ export class MonitorDataService {
    */
   async fetchServicesHealth(): Promise<ServiceHealth[]> {
     const allServices = getAllServices();
-    const results: ServiceHealth[] = [];
 
-    for (const service of allServices) {
-      const prodHealth = await this.fetchEnvironmentHealth(
-        service.healthEndpoint.prod || `https://${service.healthEndpoint.prod}/health`
-      );
+    const results = await Promise.all(
+      allServices.map(async (svc) => {
+        // prod 环境 URL
+        const prodUrl = svc.healthEndpoint;
 
-      let stageHealth: EnvironmentHealth | undefined;
-      if (service.healthEndpoint.stage) {
-        stageHealth = await this.fetchEnvironmentHealth(service.healthEndpoint.stage);
-      }
+        // stage 环境 URL（替换域名）
+        const stageUrl = prodUrl
+          .replace('auth.optima.shop', 'auth-stage.optima.shop')
+          .replace('mcp.optima.shop', 'mcp-stage.optima.shop')
+          .replace('api.optima.shop', 'api-stage.optima.shop')
+          .replace('ai.optima.shop', 'ai-stage.optima.shop')
+          .replace('mcp-comfy.optima.shop', 'mcp-comfy-stage.optima.shop')
+          .replace('mcp-fetch.optima.shop', 'mcp-fetch-stage.optima.shop')
+          .replace('mcp-research.optima.shop', 'mcp-research-stage.optima.shop')
+          .replace('mcp-shopify.optima.shop', 'mcp-shopify-stage.optima.shop')
+          .replace('mcp-commerce.optima.shop', 'mcp-commerce-stage.optima.shop')
+          .replace('mcp-ads.optima.shop', 'mcp-ads-stage.optima.shop');
 
-      results.push({
-        name: service.name,
-        type: service.type,
-        prod: prodHealth,
-        stage: stageHealth,
-      });
-    }
+        // 并行获取两个环境的状态
+        const [prod, stage] = await Promise.all([
+          this.fetchEnvironmentHealth(prodUrl),
+          this.fetchEnvironmentHealth(stageUrl),
+        ]);
+
+        return {
+          name: svc.name,
+          type: svc.type,
+          prod,
+          stage,
+        } as ServiceHealth;
+      })
+    );
 
     return results;
   }
@@ -64,23 +78,26 @@ export class MonitorDataService {
       const startTime = Date.now();
       const response = await axios.get(healthEndpoint, {
         timeout: 3000,
-        validateStatus: () => true, // 接受所有状态码
+        maxRedirects: 0, // stage MCP 307 必须返回给调用方
+        validateStatus: () => true, // 接受所有状态码，不抛异常
       });
       const responseTime = Date.now() - startTime;
 
-      // 只有 200 和 404 算健康（404 是 MCP 服务的正常响应）
-      const health = response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
+      // 只有 200 和 404 为健康，其他所有状态（包括 307, 502 等）都为不健康
+      const health: 'healthy' | 'degraded' | 'unhealthy' =
+        response.status === 200 || response.status === 404 ? 'healthy' : 'unhealthy';
 
       return {
         health,
         responseTime,
-        containerStatus: 'running',
+        containerStatus: health === 'healthy' ? 'running' : 'stopped',
       };
     } catch (error: any) {
+      // 网络错误、超时等
       return {
         health: 'unhealthy',
         responseTime: 0,
-        containerStatus: 'error',
+        containerStatus: 'unknown',
         error: error.message,
       };
     }
