@@ -54,8 +54,8 @@ export class ServicesPanel extends BasePanel {
     let content = '';
 
     // === 核心服务 ===
-    content += ` {cyan-fg}{bold}核心服务{/bold}{/cyan-fg} (${coreServices.length})\\n`;
-    content += ' {bold}服务               Prod      Stage{/bold}\\n';
+    content += ` {cyan-fg}{bold}核心服务{/bold}{/cyan-fg} (${coreServices.length})\n`;
+    content += ' {bold}服务               Prod      Stage{/bold}\n';
 
     for (const svc of coreServices) {
       const name = svc.name.padEnd(18);
@@ -70,19 +70,19 @@ export class ServicesPanel extends BasePanel {
       const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
       const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
 
-      content += ` ${name} ${prodStatus} ${stageStatus}\\n`;
+      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
 
       // 显示错误信息
       if (svc.prod.health === 'unhealthy' && svc.prod.error) {
-        content += `   {red-fg}→ ${svc.prod.error}{/red-fg}\\n`;
+        content += `   {red-fg}→ ${svc.prod.error}{/red-fg}\n`;
       }
     }
 
-    content += '\\n';
+    content += '\n';
 
     // === MCP 工具服务 ===
-    content += ` {cyan-fg}{bold}MCP 工具{/bold}{/cyan-fg} (${mcpServices.length})\\n`;
-    content += ' {bold}服务               Prod      Stage{/bold}\\n';
+    content += ` {cyan-fg}{bold}MCP 工具{/bold}{/cyan-fg} (${mcpServices.length})\n`;
+    content += ' {bold}服务               Prod      Stage{/bold}\n';
 
     for (const svc of mcpServices) {
       const name = svc.name.padEnd(18);
@@ -97,15 +97,15 @@ export class ServicesPanel extends BasePanel {
       const stageTime = svc.stage && svc.stage.responseTime > 0 ? `${svc.stage.responseTime}ms` : '-';
       const stageStatus = `${stageIcon} ${stageTime.padEnd(6)}`;
 
-      content += ` ${name} ${prodStatus} ${stageStatus}\\n`;
+      content += ` ${name} ${prodStatus} ${stageStatus}\n`;
 
       // 显示错误信息
       if (svc.prod.health === 'unhealthy' && svc.prod.error) {
-        content += `   {red-fg}→ ${svc.prod.error}{/red-fg}\\n`;
+        content += `   {red-fg}→ ${svc.prod.error}{/red-fg}\n`;
       }
     }
 
-    content += '\\n';
+    content += '\n';
 
     // === 统计信息 ===
     const totalServices = services.length;
@@ -113,11 +113,11 @@ export class ServicesPanel extends BasePanel {
     const degradedCount = services.filter((s) => s.prod.health === 'degraded').length;
     const unhealthyCount = services.filter((s) => s.prod.health === 'unhealthy').length;
 
-    content += ' {bold}统计{/bold}\\n';
-    content += `   总计: ${totalServices} 个服务\\n`;
+    content += ' {bold}统计{/bold}\n';
+    content += `   总计: ${totalServices} 个服务\n`;
     content += `   {green-fg}✓ 健康: ${healthyCount}{/green-fg}  `;
     content += `{yellow-fg}⚠ 降级: ${degradedCount}{/yellow-fg}  `;
-    content += `{red-fg}✗ 不健康: ${unhealthyCount}{/red-fg}\\n`;
+    content += `{red-fg}✗ 不健康: ${unhealthyCount}{/red-fg}\n`;
 
     this.container.setContent(content);
     this.screen.render();

@@ -57,31 +57,31 @@ export class BlueGreenPanel extends BasePanel {
       if (!bg) continue;
 
       // 服务标题
-      content += ` {cyan-fg}{bold}${bg.service}{/bold}{/cyan-fg} (${bg.subdomain}.optima.shop)\\n`;
+      content += ` {cyan-fg}{bold}${bg.service}{/bold}{/cyan-fg} (${bg.subdomain}.optima.shop)\n`;
 
       // 部署状态
       const statusEmoji = this.getStatusEmoji(bg.status);
       const statusText = this.getStatusText(bg.status);
-      content += `   状态: ${statusEmoji} ${statusText}\\n\\n`;
+      content += `   状态: ${statusEmoji} ${statusText}\n\n`;
 
       // Blue Target Group
-      content += `   {blue-fg}{bold}Blue{/bold}{/blue-fg} (${bg.blueTargetGroup.name})\\n`;
+      content += `   {blue-fg}{bold}Blue{/bold}{/blue-fg} (${bg.blueTargetGroup.name})\n`;
       content += this.renderTargetGroupInfo(bg.blueTargetGroup);
-      content += '\\n';
+      content += '\n';
 
       // Green Target Group
-      content += `   {green-fg}{bold}Green{/bold}{/green-fg} (${bg.greenTargetGroup.name})\\n`;
+      content += `   {green-fg}{bold}Green{/bold}{/green-fg} (${bg.greenTargetGroup.name})\n`;
       content += this.renderTargetGroupInfo(bg.greenTargetGroup);
-      content += '\\n';
+      content += '\n';
 
       // 流量分配可视化
-      content += `   {bold}流量分配{/bold}\\n`;
+      content += `   {bold}流量分配{/bold}\n`;
       content += this.renderTrafficBar(bg.totalTraffic.blue, bg.totalTraffic.green);
-      content += '\\n';
+      content += '\n';
 
       // 分隔线（不是最后一个服务时）
       if (i < deployments.length - 1) {
-        content += '   ' + '─'.repeat(70) + '\\n\\n';
+        content += '   ' + '─'.repeat(70) + '\n\n';
       }
     }
 
@@ -96,7 +96,7 @@ export class BlueGreenPanel extends BasePanel {
     const total = tg.healthyCount + tg.unhealthyCount + tg.drainingCount;
 
     let info = '';
-    info += `     端口: ${tg.port}\\n`;
+    info += `     端口: ${tg.port}\n`;
     info += `     实例: `;
 
     if (tg.healthyCount > 0) {
@@ -112,8 +112,8 @@ export class BlueGreenPanel extends BasePanel {
       info += `{gray-fg}无注册实例{/gray-fg}`;
     }
 
-    info += '\\n';
-    info += `     权重: {bold}${tg.weight}%{/bold}\\n`;
+    info += '\n';
+    info += `     权重: {bold}${tg.weight}%{/bold}\n`;
 
     return info;
   }
@@ -138,8 +138,8 @@ export class BlueGreenPanel extends BasePanel {
       bar += `{green-bg}${' '.repeat(greenWidth)}{/green-bg}`;
     }
 
-    bar += '\\n';
-    bar += `     {blue-fg}Blue: ${bluePercent}%{/blue-fg}  {green-fg}Green: ${greenPercent}%{/green-fg}\\n`;
+    bar += '\n';
+    bar += `     {blue-fg}Blue: ${bluePercent}%{/blue-fg}  {green-fg}Green: ${greenPercent}%{/green-fg}\n`;
 
     return bar;
   }

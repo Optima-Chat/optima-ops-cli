@@ -61,31 +61,31 @@ export class DockerPanel extends BasePanel {
 
       // 检查离线状态
       if (envData.offline) {
-        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {red-fg}[离线]{/red-fg}\\n`;
-        content += `   {gray-fg}${envData.error || 'SSH 连接超时，实例可能已关闭'}{/gray-fg}\\n\\n`;
+        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {red-fg}[离线]{/red-fg}\n`;
+        content += `   {gray-fg}${envData.error || 'SSH 连接超时，实例可能已关闭'}{/gray-fg}\n\n`;
 
         // 分隔线（不是最后一个环境时）
         if (dockerStats.indexOf(envData) < dockerStats.length - 1) {
-          content += '   ' + '─'.repeat(70) + '\\n\\n';
+          content += '   ' + '─'.repeat(70) + '\n\n';
         }
         continue;
       }
 
       // 检查其他错误
       if (envData.error) {
-        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {yellow-fg}[错误]{/yellow-fg}\\n`;
-        content += `   {gray-fg}${envData.error}{/gray-fg}\\n\\n`;
+        content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} {yellow-fg}[错误]{/yellow-fg}\n`;
+        content += `   {gray-fg}${envData.error}{/gray-fg}\n\n`;
 
         // 分隔线（不是最后一个环境时）
         if (dockerStats.indexOf(envData) < dockerStats.length - 1) {
-          content += '   ' + '─'.repeat(70) + '\\n\\n';
+          content += '   ' + '─'.repeat(70) + '\n\n';
         }
         continue;
       }
 
       // 环境标题
-      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} (${envData.stats.length} 容器)\\n`;
-      content += ' {bold}容器                             CPU    内存       网络{/bold}\\n';
+      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} (${envData.stats.length} 容器)\n`;
+      content += ' {bold}容器                             CPU    内存       网络{/bold}\n';
 
       // 容器列表
       for (const stat of envData.stats) {
@@ -105,10 +105,10 @@ export class DockerPanel extends BasePanel {
         const memColor = memPercentNum > 80 ? 'red' : memPercentNum > 50 ? 'yellow' : 'green';
         const memDisplay = `{${memColor}-fg}${mem.padEnd(10)}{/${memColor}-fg}`;
 
-        content += ` ${container} ${cpuDisplay} ${memDisplay} ${net}\\n`;
+        content += ` ${container} ${cpuDisplay} ${memDisplay} ${net}\n`;
       }
 
-      content += '\\n';
+      content += '\n';
 
       // 统计信息
       const totalContainers = envData.stats.length;
@@ -117,24 +117,24 @@ export class DockerPanel extends BasePanel {
         (s) => s.memoryTotal > 0 && (s.memoryUsed / s.memoryTotal) * 100 > 80
       ).length;
 
-      content += `   {bold}统计{/bold}\\n`;
-      content += `     总容器: ${totalContainers}\\n`;
+      content += `   {bold}统计{/bold}\n`;
+      content += `     总容器: ${totalContainers}\n`;
 
       if (highCpu > 0) {
-        content += `     {red-fg}⚠ CPU 高负载: ${highCpu} 个容器{/red-fg}\\n`;
+        content += `     {red-fg}⚠ CPU 高负载: ${highCpu} 个容器{/red-fg}\n`;
       }
       if (highMem > 0) {
-        content += `     {red-fg}⚠ 内存高使用: ${highMem} 个容器{/red-fg}\\n`;
+        content += `     {red-fg}⚠ 内存高使用: ${highMem} 个容器{/red-fg}\n`;
       }
       if (highCpu === 0 && highMem === 0) {
-        content += `     {green-fg}✓ 所有容器资源正常{/green-fg}\\n`;
+        content += `     {green-fg}✓ 所有容器资源正常{/green-fg}\n`;
       }
 
-      content += '\\n';
+      content += '\n';
 
       // 分隔线（不是最后一个环境时）
       if (dockerStats.indexOf(envData) < dockerStats.length - 1) {
-        content += '   ' + '─'.repeat(70) + '\\n\\n';
+        content += '   ' + '─'.repeat(70) + '\n\n';
       }
     }
 
