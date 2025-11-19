@@ -437,16 +437,18 @@ export class PanelManager {
    */
   private scheduleRefresh(name: string, interval: number, task: () => Promise<void>): void {
     // 立即执行一次
-    task().catch(() => {
-      // 忽略初始错误，继续定时刷新
+    task().catch((error) => {
+      // 记录初始错误，但继续定时刷新
+      console.error(`[${name}] Initial fetch failed:`, error.message || error);
     });
 
     // 设置定时器
     const timer = setInterval(async () => {
       try {
         await task();
-      } catch (error) {
-        // 后台刷新失败不中断，继续下次刷新
+      } catch (error: any) {
+        // 记录后台刷新错误，但不中断
+        console.error(`[${name}] Background refresh failed:`, error.message || error);
       }
     }, interval);
 

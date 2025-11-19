@@ -52,10 +52,14 @@ export class MonitorDataService {
           .replace('mcp-commerce.optima.shop', 'mcp-commerce-stage.optima.shop')
           .replace('mcp-ads.optima.shop', 'mcp-ads-stage.optima.shop');
 
+        // 容器名称（prod 和 stage）
+        const prodContainer = svc.container; // optima-xxx-prod
+        const stageContainer = svc.container.replace('-prod', '-stage'); // optima-xxx-stage
+
         // 并行获取两个环境的状态
         const [prod, stage] = await Promise.all([
-          this.fetchEnvironmentHealth(prodUrl, svc.containerName.prod, 'ec2-prod.optima.shop'),
-          this.fetchEnvironmentHealth(stageUrl, svc.containerName.stage, 'ec2-stage.optima.shop'),
+          this.fetchEnvironmentHealth(prodUrl, prodContainer, 'ec2-prod.optima.shop'),
+          this.fetchEnvironmentHealth(stageUrl, stageContainer, 'ec2-stage.optima.shop'),
         ]);
 
         return {
