@@ -19,13 +19,133 @@ import type {
  * - EC2 资源：SSH 命令
  * - Docker 容器：SSH 命令
  */
+/**
+ * SSH 连接池项
+ */
+interface SSHConnection {
+  conn: SSH2Client;
+  host: string;
+  lastUsed: number;
+  inUse: boolean;
+}
+
 export class MonitorDataService {
   private environment: string;
   private sshKeyPath: string;
+  private connectionPool: Map<string, SSHConnection>;
+  private maxIdleTime: number = 60000; // 60秒后释放空闲连接
 
   constructor(environment: string = 'production') {
     this.environment = environment;
     this.sshKeyPath = process.env.OPTIMA_SSH_KEY || `${process.env.HOME}/.ssh/optima-ec2-key`;
+    this.connectionPool = new Map();
+
+    // 定期清理空闲连接
+    setInterval(() => this.cleanupIdleConnections(), 30000);
+  }
+
+  /**
+   * 清理空闲连接
+   */
+  private cleanupIdleConnections(): void {
+    const now = Date.now();
+    for (const [host, conn] of this.connectionPool.entries()) {
+      if (!conn.inUse && (now - conn.lastUsed) > this.maxIdleTime) {
+        conn.conn.end();
+        this.connectionPool.delete(host);
+      }
+    }
+  }
+
+  /**
+   * 获取或创建 SSH 连接
+   */
+  private async getOrCreateConnection(host: string): Promise<SSH2Client> {
+    // 检查是否有可用连接
+    const existing = this.connectionPool.get(host);
+    if (existing && !existing.inUse) {
+      existing.inUse = true;
+      existing.lastUsed = Date.now();
+      return existing.conn;
+    }
+
+    // 创建新连接
+    return new Promise((resolve, reject) => {
+      const conn = new SSH2Client();
+
+      let privateKey: string;
+      try {
+        privateKey = fs.readFileSync(this.sshKeyPath, 'utf8');
+      } catch (error: any) {
+        reject(new Error(`Failed to read SSH key: ${error.message}`));
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        conn.end();
+        reject(new Error('SSH connection timed out'));
+      }, 10000);
+
+      conn
+        .on('ready', () => {
+          clearTimeout(timeout);
+
+          // 保存到连接池
+          this.connectionPool.set(host, {
+            conn,
+            host,
+            lastUsed: Date.now(),
+            inUse: true,
+          });
+
+          resolve(conn);
+        })
+        .on('error', (err: any) => {
+          clearTimeout(timeout);
+          let message = err.message || String(err);
+
+          if (message.includes('ENOTFOUND')) {
+            message = `DNS lookup failed for ${host}`;
+          } else if (message.includes('ECONNREFUSED')) {
+            message = `Connection refused by ${host}`;
+          } else if (message.includes('ETIMEDOUT')) {
+            message = `Connection timeout to ${host}`;
+          } else if (message.includes('ECONNRESET')) {
+            message = `Connection reset by ${host}`;
+          } else if (message.includes('EHOSTUNREACH')) {
+            message = `Host ${host} unreachable`;
+          } else if (message.includes('connect lost before handshake') ||
+                     message.includes('Connection lost') ||
+                     message.includes('Socket closed')) {
+            message = `SSH handshake failed for ${host} (connection lost)`;
+          } else if (message.includes('All configured authentication methods failed')) {
+            message = `SSH authentication failed for ${host}`;
+          }
+
+          reject(new Error(message));
+        })
+        .on('close', () => {
+          // 连接关闭时从池中移除
+          this.connectionPool.delete(host);
+        })
+        .connect({
+          host,
+          port: 22,
+          username: 'ec2-user',
+          privateKey,
+        });
+    });
+  }
+
+  /**
+   * 释放连接（标记为可用）
+   */
+  private releaseConnection(host: string): void {
+    const conn = this.connectionPool.get(host);
+    if (conn) {
+      conn.inUse = false;
+      conn.lastUsed = Date.now();
+    }
   }
 
   /**
@@ -468,91 +588,54 @@ export class MonitorDataService {
   }
 
   /**
-   * 执行 SSH 命令（内部实现）
+   * 执行 SSH 命令（内部实现，使用连接池）
    */
   private async executeSSHCommandInternal(host: string, command: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const conn = new SSH2Client();
+    let conn: SSH2Client | null = null;
 
-      let privateKey: string;
-      try {
-        privateKey = fs.readFileSync(this.sshKeyPath, 'utf8');
-      } catch (error: any) {
-        reject(new Error(`Failed to read SSH key: ${error.message}`));
-        return;
-      }
+    try {
+      // 获取或创建连接
+      conn = await this.getOrCreateConnection(host);
 
-      // 超时处理
-      const timeout = setTimeout(() => {
-        conn.end();
-        reject(new Error('SSH connection timed out'));
-      }, 10000);
-
-      conn
-        .on('ready', () => {
-          clearTimeout(timeout);
-          conn.exec(command, (err, stream) => {
-            if (err) {
-              conn.end();
-              reject(err);
-              return;
-            }
-
-            let stdout = '';
-            let stderr = '';
-
-            stream
-              .on('close', () => {
-                conn.end();
-                if (stderr) {
-                  reject(new Error(stderr));
-                } else {
-                  resolve(stdout);
-                }
-              })
-              .on('data', (data: Buffer) => {
-                stdout += data.toString();
-              })
-              .stderr.on('data', (data: Buffer) => {
-                stderr += data.toString();
-              });
-          });
-        })
-        .on('error', (err: any) => {
-          clearTimeout(timeout);
-          // 提供更友好的错误信息
-          let message = err.message || String(err);
-
-          // 常见错误的友好提示
-          if (message.includes('ENOTFOUND')) {
-            message = `DNS lookup failed for ${host}`;
-          } else if (message.includes('ECONNREFUSED')) {
-            message = `Connection refused by ${host}`;
-          } else if (message.includes('ETIMEDOUT')) {
-            message = `Connection timeout to ${host}`;
-          } else if (message.includes('ECONNRESET')) {
-            message = `Connection reset by ${host}`;
-          } else if (message.includes('EHOSTUNREACH')) {
-            message = `Host ${host} unreachable`;
-          } else if (message.includes('connect lost before handshake') ||
-                     message.includes('Connection lost') ||
-                     message.includes('Socket closed')) {
-            message = `SSH handshake failed for ${host} (connection lost)`;
-          } else if (message.includes('All configured authentication methods failed')) {
-            message = `SSH authentication failed for ${host}`;
+      // 执行命令
+      const result = await new Promise<string>((resolve, reject) => {
+        conn!.exec(command, (err, stream) => {
+          if (err) {
+            reject(err);
+            return;
           }
 
-          reject(new Error(message));
-        })
-        .connect({
-          host,
-          port: 22,
-          username: 'ec2-user',
-          privateKey,
-          // ssh2 库不会验证 host key，因此 EC2 重建后可以直接连接
-          // 如果用户的 ~/.ssh/known_hosts 有旧 key，需要手动清理或配置 SSH
+          let stdout = '';
+          let stderr = '';
+
+          stream
+            .on('close', () => {
+              if (stderr) {
+                reject(new Error(stderr));
+              } else {
+                resolve(stdout);
+              }
+            })
+            .on('data', (data: Buffer) => {
+              stdout += data.toString();
+            })
+            .stderr.on('data', (data: Buffer) => {
+              stderr += data.toString();
+            });
         });
-    });
+      });
+
+      // 释放连接
+      this.releaseConnection(host);
+      return result;
+
+    } catch (error) {
+      // 出错时也释放连接
+      if (conn) {
+        this.releaseConnection(host);
+      }
+      throw error;
+    }
   }
 
   /**
