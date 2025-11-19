@@ -441,10 +441,24 @@ export class MonitorDataService {
   private async executeSSHCommand(host: string, command: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const conn = new SSH2Client();
-      const privateKey = fs.readFileSync(this.sshKeyPath, 'utf8');
+
+      let privateKey: string;
+      try {
+        privateKey = fs.readFileSync(this.sshKeyPath, 'utf8');
+      } catch (error: any) {
+        reject(new Error(`Failed to read SSH key: ${error.message}`));
+        return;
+      }
+
+      // 超时处理
+      const timeout = setTimeout(() => {
+        conn.end();
+        reject(new Error('SSH connection timed out'));
+      }, 10000);
 
       conn
         .on('ready', () => {
+          clearTimeout(timeout);
           conn.exec(command, (err, stream) => {
             if (err) {
               conn.end();
@@ -472,14 +486,31 @@ export class MonitorDataService {
               });
           });
         })
-        .on('error', (err) => {
-          reject(err);
+        .on('error', (err: any) => {
+          clearTimeout(timeout);
+          // 提供更友好的错误信息
+          let message = err.message || String(err);
+
+          // 常见错误的友好提示
+          if (message.includes('ENOTFOUND')) {
+            message = `DNS lookup failed for ${host}`;
+          } else if (message.includes('ECONNREFUSED')) {
+            message = `Connection refused by ${host}`;
+          } else if (message.includes('ETIMEDOUT')) {
+            message = `Connection timeout to ${host}`;
+          } else if (message.includes('All configured authentication methods failed')) {
+            message = `SSH authentication failed for ${host}`;
+          }
+
+          reject(new Error(message));
         })
         .connect({
           host,
           port: 22,
           username: 'ec2-user',
           privateKey,
+          // ssh2 库不会验证 host key，因此 EC2 重建后可以直接连接
+          // 如果用户的 ~/.ssh/known_hosts 有旧 key，需要手动清理或配置 SSH
         });
     });
   }
