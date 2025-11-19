@@ -230,15 +230,19 @@ export class MonitorDataService {
     environment: 'production' | 'stage' | 'shared'
   ): Promise<{ stats: ContainerStats[]; error?: string; offline?: boolean }> {
     try {
+    // 获取资源使用统计
     const result = await this.executeSSHCommand(
       host,
       'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"'
     );
 
     const lines = result.trim().split('\n');
-    const stats: ContainerStats[] = lines
+    const containerNames = lines.filter((line) => line.trim()).map((line) => line.split('|')[0]);
+
+    // 并行获取每个容器的详细信息
+    const statsPromises = lines
       .filter((line) => line.trim())
-      .map((line) => {
+      .map(async (line) => {
         const [container, cpuStr, memStr, netStr] = line.split('|');
 
         // 解析 CPU
@@ -254,6 +258,9 @@ export class MonitorDataService {
         const networkRx = this.parseBytes(netParts[0]?.trim() || '0');
         const networkTx = this.parseBytes(netParts[1]?.trim() || '0');
 
+        // 获取容器详细信息
+        const detailInfo = await this.fetchContainerDetails(host, container || 'unknown');
+
         return {
           container: container || 'unknown',
           cpuPercent,
@@ -261,8 +268,11 @@ export class MonitorDataService {
           memoryTotal,
           networkRx,
           networkTx,
+          ...detailInfo, // 合并详细信息
         };
       });
+
+    const stats = await Promise.all(statsPromises);
 
       return { stats };
     } catch (error: any) {
@@ -276,6 +286,91 @@ export class MonitorDataService {
         error: error.message,
         offline: isTimeout,
       };
+    }
+  }
+
+  /**
+   * 获取容器详细信息（状态、启动时间、镜像、构建信息等）
+   */
+  private async fetchContainerDetails(
+    host: string,
+    containerName: string
+  ): Promise<Partial<ContainerStats>> {
+    try {
+      // 使用 docker inspect 获取 JSON 格式的详细信息
+      const inspectResult = await this.executeSSHCommand(
+        host,
+        `docker inspect ${containerName}`
+      );
+
+      const inspectData = JSON.parse(inspectResult);
+      if (!inspectData || inspectData.length === 0) {
+        return {};
+      }
+
+      const container = inspectData[0];
+
+      // 提取状态信息
+      const status = container.State?.Status || 'unknown';
+      const startedAt = container.State?.StartedAt || '';
+
+      // 计算运行时长（如果正在运行）
+      let uptime = 'unknown';
+      if (status === 'running' && startedAt) {
+        const start = new Date(startedAt);
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        uptime = this.formatUptime(diffMs);
+      }
+
+      // 提取镜像信息
+      const imageTag = container.Config?.Image || 'unknown';
+      const imageId = container.Image?.substring(7, 19) || 'unknown'; // 取前12位
+
+      // 提取构建信息（从镜像 labels）
+      const labels = container.Config?.Labels || {};
+      const buildCommit = labels['org.opencontainers.image.revision'] ||
+                         labels['git.commit'] ||
+                         labels['vcs.revision'];
+      const buildBranch = labels['git.branch'] || labels['vcs.branch'];
+      const buildWorkflow = labels['github.workflow'] || labels['ci.workflow'];
+      const buildTime = labels['org.opencontainers.image.created'] ||
+                       labels['build.time'];
+
+      return {
+        status,
+        startedAt,
+        uptime,
+        imageTag,
+        imageId,
+        buildCommit: buildCommit?.substring(0, 8), // 只保留前8位
+        buildBranch,
+        buildWorkflow,
+        buildTime,
+      };
+    } catch (error) {
+      // 获取详细信息失败不影响基本统计，返回空对象
+      return {};
+    }
+  }
+
+  /**
+   * 格式化运行时长
+   */
+  private formatUptime(milliseconds: number): string {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 0) {
+      return `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m`;
+    } else {
+      return `${seconds}s`;
     }
   }
 

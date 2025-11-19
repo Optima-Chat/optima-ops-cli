@@ -43,6 +43,19 @@ export interface ContainerStats {
   memoryTotal: number; // bytes
   networkRx: number; // bytes
   networkTx: number; // bytes
+
+  // 扩展信息
+  status?: string; // running, exited, etc.
+  uptime?: string; // 运行时长，如 "2 days ago"
+  startedAt?: string; // 启动时间
+  imageTag?: string; // 镜像标签，如 "v1.2.3"
+  imageId?: string; // 镜像 ID（短格式）
+
+  // 构建信息（从镜像 labels 读取）
+  buildCommit?: string; // Git commit SHA
+  buildBranch?: string; // Git 分支
+  buildWorkflow?: string; // GitHub workflow 名称
+  buildTime?: string; // 构建时间
 }
 
 /**
