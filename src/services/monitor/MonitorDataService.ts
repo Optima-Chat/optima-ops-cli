@@ -175,9 +175,10 @@ export class MonitorDataService {
         uptime,
       };
     } catch (error: any) {
-      console.error(`获取 ${environment} EC2 数据失败:`, error.message);
+      // 不要用 console.error，会干扰 TUI 显示
+      // dashboardLogger.debug(`获取 ${environment} EC2 数据失败:`, error.message);
 
-      // 返回错误状态而不是 null
+      // 返回错误状态而不是 null（这是正常流程的一部分）
       const isTimeout = error.message?.includes('Timed out') || error.message?.includes('timeout');
       return {
         environment,
@@ -257,7 +258,10 @@ export class MonitorDataService {
 
       return { stats };
     } catch (error: any) {
-      console.error(`获取 ${environment} Docker 数据失败:`, error.message);
+      // 不要用 console.error，会干扰 TUI 显示
+      // dashboardLogger.debug(`获取 ${environment} Docker 数据失败:`, error.message);
+
+      // 返回错误状态（这是正常流程的一部分）
       const isTimeout = error.message?.includes('Timed out') || error.message?.includes('timeout');
       return {
         stats: [],
