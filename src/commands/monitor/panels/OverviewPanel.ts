@@ -194,11 +194,18 @@ export class OverviewPanel extends BasePanel {
           continue;
         }
 
+        content += `   {bold}${envLabel}{/bold}\n`;
+
+        // CPU 使用率
+        if (stat.cpuUsage !== undefined) {
+          const cpuPercent = stat.cpuUsage.toFixed(1);
+          const cpuColor = stat.cpuUsage > 80 ? 'red' : stat.cpuUsage > 50 ? 'yellow' : 'green';
+          content += `     CPU: {${cpuColor}-fg}${cpuPercent}%{/${cpuColor}-fg}\n`;
+        }
+
         // 内存使用率
         const memPercent = stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
         const memColor = parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
-
-        content += `   {bold}${envLabel}{/bold}\n`;
         content += `     内存: {${memColor}-fg}${memPercent}%{/${memColor}-fg} (${stat.memoryUsed}MB / ${stat.memoryTotal}MB)\n`;
 
         // 磁盘使用（只显示最高的）
