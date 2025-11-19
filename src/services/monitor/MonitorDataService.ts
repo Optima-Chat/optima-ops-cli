@@ -637,22 +637,25 @@ export class MonitorDataService {
             return;
           }
 
-          let stdout = '';
-          let stderr = '';
+          // 使用数组收集数据，避免字符串拼接的内存开销
+          const stdoutChunks: Buffer[] = [];
+          const stderrChunks: Buffer[] = [];
 
           stream
             .on('close', () => {
+              const stderr = Buffer.concat(stderrChunks).toString();
               if (stderr) {
                 reject(new Error(stderr));
               } else {
+                const stdout = Buffer.concat(stdoutChunks).toString();
                 resolve(stdout);
               }
             })
             .on('data', (data: Buffer) => {
-              stdout += data.toString();
+              stdoutChunks.push(data);
             })
             .stderr.on('data', (data: Buffer) => {
-              stderr += data.toString();
+              stderrChunks.push(data);
             });
         });
       });
