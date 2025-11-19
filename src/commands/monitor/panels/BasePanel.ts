@@ -69,12 +69,14 @@ export abstract class BasePanel {
 
   /**
    * 显示 Panel
+   *
+   * 注意：数据刷新由 PanelManager 统一管理，这里只负责渲染
    */
   show(): void {
     this.isVisible = true;
     this.container.show();
+    this.render(); // 立即渲染一次（从缓存读取数据）
     this.screen.render();
-    this.startAutoRefresh();
   }
 
   /**
@@ -83,40 +85,6 @@ export abstract class BasePanel {
   hide(): void {
     this.isVisible = false;
     this.container.hide();
-    this.stopAutoRefresh();
-  }
-
-  /**
-   * 开始自动刷新
-   */
-  private startAutoRefresh(): void {
-    // 立即刷新一次
-    this.refresh().catch((error) => {
-      this.showError(`刷新失败: ${error.message}`);
-    });
-
-    // 设置定时刷新
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-    }
-
-    this.refreshTimer = setInterval(() => {
-      if (this.isVisible) {
-        this.refresh().catch((error) => {
-          this.showError(`刷新失败: ${error.message}`);
-        });
-      }
-    }, this.config.refreshInterval);
-  }
-
-  /**
-   * 停止自动刷新
-   */
-  private stopAutoRefresh(): void {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
-    }
   }
 
   /**

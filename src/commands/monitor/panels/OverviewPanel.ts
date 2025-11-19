@@ -92,14 +92,15 @@ export class OverviewPanel extends BasePanel {
 
   /**
    * 覆盖 BasePanel 的 show 方法
+   *
+   * 数据刷新由 PanelManager 统一管理，这里只负责显示和渲染
    */
   show(): void {
     this.isVisible = true;
     this.leftBox.show();
     this.rightBox.show();
+    this.render(); // 立即渲染一次（从缓存读取）
     this.screen.render();
-    // 手动调用 startAutoRefresh（因为我们覆盖了 show）
-    this.startAutoRefresh();
   }
 
   /**
@@ -109,84 +110,17 @@ export class OverviewPanel extends BasePanel {
     this.isVisible = false;
     if (this.leftBox) this.leftBox.hide();
     if (this.rightBox) this.rightBox.hide();
-    // 不调用 stopAutoRefresh，让 BasePanel 处理
   }
 
   /**
-   * 访问 BasePanel 的 private 方法（通过 any 类型转换）
+   * 手动刷新（按 'r' 键时调用）
+   *
+   * 注意：正常情况下不需要手动刷新，PanelManager 会后台自动刷新
    */
-  private startAutoRefresh(): void {
-    // 立即刷新一次
-    this.refresh().catch((error: any) => {
-      this.showError(`刷新失败: ${error.message}`);
-    });
-
-    // 设置定时刷新（直接使用 config 的刷新间隔）
-    const timer = setInterval(() => {
-      if (this.isVisible) {
-        this.refresh().catch((error: any) => {
-          this.showError(`刷新失败: ${error.message}`);
-        });
-      }
-    }, this.config.refreshInterval);
-  }
-
   async refresh(): Promise<void> {
-    this.showLoading('刷新概览数据...');
-
-    try {
-      // 并行获取所有数据（首次加载或刷新）
-      const [services, ec2, docker, blueGreen] = await Promise.all([
-        this.fetchOrGetServices(),
-        this.fetchOrGetEC2(),
-        this.fetchOrGetDocker(),
-        this.fetchOrGetBlueGreen(),
-      ]);
-
-      // 更新缓存
-      if (services) this.cache.setServices(this.environment, services);
-      if (ec2) this.cache.setEC2(this.environment, ec2);
-      if (docker) this.cache.setDocker(this.environment, docker);
-      if (blueGreen) this.cache.setBlueGreen(this.environment, blueGreen);
-
-      this.render();
-    } catch (error: any) {
-      this.showError(error.message);
-    }
-  }
-
-  private async fetchOrGetServices() {
-    // 如果缓存有效，直接返回缓存
-    if (this.cache.isValid(`services:${this.environment}`)) {
-      return this.cache.getServices(this.environment);
-    }
-    // 否则获取新数据
-    return await this.dataService.fetchServicesHealth();
-  }
-
-  private async fetchOrGetEC2() {
-    if (this.cache.isValid(`ec2:${this.environment}`)) {
-      return this.cache.getEC2(this.environment);
-    }
-    return await this.dataService.fetchEC2Stats();
-  }
-
-  private async fetchOrGetDocker() {
-    if (this.cache.isValid(`docker:${this.environment}`)) {
-      return this.cache.getDocker(this.environment);
-    }
-    return await this.dataService.fetchDockerStats();
-  }
-
-  private async fetchOrGetBlueGreen() {
-    if (this.cache.isValid(`bluegreen:${this.environment}`)) {
-      return this.cache.getBlueGreen(this.environment);
-    }
-    try {
-      return await this.blueGreenService.getBlueGreenDeployments();
-    } catch {
-      return [];
-    }
+    // 手动刷新时不做任何事，数据由 PanelManager 统一管理
+    // 只重新渲染当前视图
+    this.render();
   }
 
   render(): void {

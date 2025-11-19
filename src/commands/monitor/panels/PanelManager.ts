@@ -75,6 +75,11 @@ export class PanelManager {
     this.currentPanel = 'overview';
     this.cache = new DataCache();
 
+    // 初始化数据服务
+    this.dataService = new MonitorDataService(environment);
+    this.blueGreenService = new BlueGreenService(environment);
+    this.refreshTimers = new Map();
+
     // 创建 Header 和 Footer
     this.headerBox = this.createHeader();
     this.footerBox = this.createFooter();
@@ -303,7 +308,7 @@ export class PanelManager {
   }
 
   /**
-   * 初始化（显示默认 Panel）
+   * 初始化（显示默认 Panel + 启动后台数据刷新）
    */
   init(): void {
     const defaultPanel = this.panels.get('overview');
@@ -312,12 +317,92 @@ export class PanelManager {
       this.currentPanel = 'overview';
       this.updateFooter();
     }
+
+    // 启动统一后台数据刷新
+    this.startBackgroundRefresh();
   }
 
   /**
-   * 销毁所有 Panel
+   * 启动统一后台数据刷新
+   *
+   * 所有数据在后台自动刷新，面板只负责渲染
+   */
+  private startBackgroundRefresh(): void {
+    // 服务健康 - 30秒刷新一次
+    this.scheduleRefresh('services', 30000, async () => {
+      const services = await this.dataService.fetchServicesHealth();
+      this.cache.setServices(this.environment, services);
+      this.refreshCurrentPanelView();
+    });
+
+    // EC2 资源 - 5分钟刷新一次
+    this.scheduleRefresh('ec2', 300000, async () => {
+      const ec2 = await this.dataService.fetchEC2Stats();
+      this.cache.setEC2(this.environment, ec2);
+      this.refreshCurrentPanelView();
+    });
+
+    // Docker 容器 - 30秒刷新一次
+    this.scheduleRefresh('docker', 30000, async () => {
+      const docker = await this.dataService.fetchDockerStats();
+      this.cache.setDocker(this.environment, docker);
+      this.refreshCurrentPanelView();
+    });
+
+    // 蓝绿部署 - 5秒刷新一次
+    this.scheduleRefresh('bluegreen', 5000, async () => {
+      try {
+        const blueGreen = await this.blueGreenService.getBlueGreenDeployments();
+        this.cache.setBlueGreen(this.environment, blueGreen);
+        this.refreshCurrentPanelView();
+      } catch {
+        // 蓝绿部署可能不存在，忽略错误
+      }
+    });
+  }
+
+  /**
+   * 调度定时刷新任务
+   */
+  private scheduleRefresh(name: string, interval: number, task: () => Promise<void>): void {
+    // 立即执行一次
+    task().catch(() => {
+      // 忽略初始错误，继续定时刷新
+    });
+
+    // 设置定时器
+    const timer = setInterval(async () => {
+      try {
+        await task();
+      } catch (error) {
+        // 后台刷新失败不中断，继续下次刷新
+      }
+    }, interval);
+
+    this.refreshTimers.set(name, timer);
+  }
+
+  /**
+   * 刷新当前面板视图（不重新获取数据，只重新渲染）
+   */
+  private refreshCurrentPanelView(): void {
+    const panel = this.panels.get(this.currentPanel);
+    if (panel && panel.visible()) {
+      panel.render();
+    }
+  }
+
+  /**
+   * 销毁所有 Panel 和定时器
    */
   destroy(): void {
+    // 停止所有后台刷新
+    for (const timer of this.refreshTimers.values()) {
+      clearInterval(timer);
+    }
+    this.refreshTimers.clear();
+
+    // 销毁面板
     for (const panel of this.panels.values()) {
       panel.destroy();
     }

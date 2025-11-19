@@ -25,19 +25,13 @@ export class ServicesPanel extends BasePanel {
     this.dataService = new MonitorDataService(environment);
   }
 
+  /**
+   * 手动刷新（按 'r' 键时调用）
+   *
+   * 数据由 PanelManager 统一后台刷新，这里只重新渲染
+   */
   async refresh(): Promise<void> {
-    this.showLoading('刷新服务健康数据...');
-
-    try {
-      const services = await this.dataService.fetchServicesHealth();
-
-      // 更新缓存
-      this.cache.setServices(this.environment, services);
-
-      this.render();
-    } catch (error: any) {
-      this.showError(error.message);
-    }
+    this.render();
   }
 
   render(): void {

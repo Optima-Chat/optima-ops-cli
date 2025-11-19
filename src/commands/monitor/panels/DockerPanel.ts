@@ -25,19 +25,13 @@ export class DockerPanel extends BasePanel {
     this.dataService = new MonitorDataService(environment);
   }
 
+  /**
+   * 手动刷新（按 'r' 键时调用）
+   *
+   * 数据由 PanelManager 统一后台刷新，这里只重新渲染
+   */
   async refresh(): Promise<void> {
-    this.showLoading('刷新 Docker 容器数据...');
-
-    try {
-      const dockerStats = await this.dataService.fetchDockerStats();
-
-      // 更新缓存
-      this.cache.setDocker(this.environment, dockerStats);
-
-      this.render();
-    } catch (error: any) {
-      this.showError(error.message);
-    }
+    this.render();
   }
 
   render(): void {
