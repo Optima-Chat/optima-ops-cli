@@ -78,74 +78,62 @@ export class DockerPanel extends BasePanel {
       }
 
       // 环境标题
-      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} (${envData.stats.length} 容器)\n\n`;
-
-      // 容器列表（详细信息）
-      for (const stat of envData.stats) {
-        // 容器名称和状态
-        const statusColor = stat.status === 'running' ? 'green' : 'yellow';
-        content += `   {bold}${stat.container}{/bold} {${statusColor}-fg}[${stat.status || 'unknown'}]{/${statusColor}-fg}\n`;
-
-        // 运行时长和启动时间
-        if (stat.uptime) {
-          content += `     {gray-fg}运行时长:{/gray-fg} ${stat.uptime}`;
-          if (stat.startedAt) {
-            const startTime = new Date(stat.startedAt).toLocaleString('zh-CN', {
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-            content += ` {gray-fg}(启动于 ${startTime}){/gray-fg}`;
-          }
-          content += '\n';
-        }
-
-        // 镜像信息
-        if (stat.imageTag) {
-          content += `     {gray-fg}镜像:{/gray-fg} ${stat.imageTag}`;
-          if (stat.imageId) {
-            content += ` {gray-fg}(${stat.imageId}){/gray-fg}`;
-          }
-          content += '\n';
-        }
-
-        // 构建信息
-        if (stat.buildCommit || stat.buildBranch || stat.buildWorkflow) {
-          content += `     {gray-fg}构建:{/gray-fg}`;
-          if (stat.buildCommit) {
-            content += ` {cyan-fg}${stat.buildCommit}{/cyan-fg}`;
-          }
-          if (stat.buildBranch) {
-            content += ` @ {blue-fg}${stat.buildBranch}{/blue-fg}`;
-          }
-          if (stat.buildWorkflow) {
-            content += ` via {magenta-fg}${stat.buildWorkflow}{/magenta-fg}`;
-          }
-          content += '\n';
-        }
-
-        // 资源使用
-        const cpu = stat.cpuPercent.toFixed(1) + '%';
-        const memPercent =
-          stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
-        const mem = `${this.formatBytes(stat.memoryUsed)}/${this.formatBytes(stat.memoryTotal)}`;
-        const net = `${this.formatBytes(stat.networkRx)}↓ ${this.formatBytes(stat.networkTx)}↑`;
-
-        // CPU 颜色
-        const cpuColor = stat.cpuPercent > 80 ? 'red' : stat.cpuPercent > 50 ? 'yellow' : 'green';
-        const memColor = parseFloat(memPercent) > 80 ? 'red' : parseFloat(memPercent) > 50 ? 'yellow' : 'green';
-
-        content += `     {gray-fg}资源:{/gray-fg} CPU {${cpuColor}-fg}${cpu}{/${cpuColor}-fg} | `;
-        content += `内存 {${memColor}-fg}${mem} (${memPercent}%){/${memColor}-fg} | `;
-        content += `网络 ${net}\n`;
-
-        content += '\n';
-      }
+      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg} (${envData.stats.length} 容器)\n`;
 
       // 如果没有容器，显示提示
       if (envData.stats.length === 0) {
         content += '   {gray-fg}无运行中的容器{/gray-fg}\n\n';
+      } else {
+        // 表格头部
+        content += ' {bold}容器                CPU   内存      版本/分支        运行时长  构建{/bold}\n';
+
+        // 容器列表（紧凑表格格式）
+        for (const stat of envData.stats) {
+          // 容器名称（截断到20字符）
+          const containerName = stat.container.length > 20
+            ? stat.container.substring(0, 18) + '..'
+            : stat.container.padEnd(20);
+
+          // CPU
+          const cpu = stat.cpuPercent.toFixed(1) + '%';
+          const cpuColor = stat.cpuPercent > 80 ? 'red' : stat.cpuPercent > 50 ? 'yellow' : 'green';
+          const cpuDisplay = `{${cpuColor}-fg}${cpu.padStart(5)}{/${cpuColor}-fg}`;
+
+          // 内存
+          const memPercent =
+            stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
+          const memColor = parseFloat(memPercent) > 80 ? 'red' : parseFloat(memPercent) > 50 ? 'yellow' : 'green';
+          const memDisplay = `{${memColor}-fg}${memPercent.padStart(3)}%{/${memColor}-fg}`;
+
+          // 版本/分支（优先显示 tag，其次 branch）
+          let versionInfo = '';
+          if (stat.buildTag) {
+            versionInfo = `{green-fg}${stat.buildTag}{/green-fg}`;
+          } else if (stat.buildBranch) {
+            versionInfo = `{blue-fg}${stat.buildBranch}{/blue-fg}`;
+          } else if (stat.buildCommit) {
+            versionInfo = `{cyan-fg}${stat.buildCommit}{/cyan-fg}`;
+          } else {
+            versionInfo = '{gray-fg}-{/gray-fg}';
+          }
+          // 截断到16字符（考虑颜色标签）
+          const versionPlain = stat.buildTag || stat.buildBranch || stat.buildCommit || '-';
+          const versionPadding = Math.max(0, 16 - versionPlain.length);
+          versionInfo = versionInfo + ' '.repeat(versionPadding);
+
+          // 运行时长
+          const uptimeDisplay = (stat.uptime || '-').padEnd(10);
+
+          // 构建信息（commit 前8位）
+          const buildInfo = stat.buildCommit
+            ? `{gray-fg}${stat.buildCommit}{/gray-fg}`
+            : '{gray-fg}-{/gray-fg}';
+
+          // 组装行
+          content += ` ${containerName} ${cpuDisplay} ${memDisplay}  ${versionInfo} ${uptimeDisplay} ${buildInfo}\n`;
+        }
+
+        content += '\n';
       }
 
       // 统计信息

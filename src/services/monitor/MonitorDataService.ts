@@ -329,11 +329,32 @@ export class MonitorDataService {
 
       // 提取构建信息（从镜像 labels）
       const labels = container.Config?.Labels || {};
+
+      // Git commit
       const buildCommit = labels['org.opencontainers.image.revision'] ||
                          labels['git.commit'] ||
-                         labels['vcs.revision'];
-      const buildBranch = labels['git.branch'] || labels['vcs.branch'];
-      const buildWorkflow = labels['github.workflow'] || labels['ci.workflow'];
+                         labels['vcs.revision'] ||
+                         labels['COMMIT_SHA'];
+
+      // Git 分支或 Tag
+      // 优先使用 tag，如果没有 tag 则使用 branch
+      const gitRef = labels['org.opencontainers.image.ref.name'] || // OCI 标准
+                     labels['git.tag'] ||                           // 自定义 tag
+                     labels['GITHUB_REF_NAME'] ||                   // GitHub Actions
+                     labels['git.branch'] ||                        // 自定义 branch
+                     labels['vcs.branch'];
+
+      // 判断是 tag 还是 branch（如果以 v 开头或包含数字.数字，认为是 tag）
+      const isTag = gitRef && (/^v\d+/.test(gitRef) || /\d+\.\d+/.test(gitRef));
+      const buildBranch = !isTag ? gitRef : undefined;
+      const buildTag = isTag ? gitRef : undefined;
+
+      // Workflow 名称
+      const buildWorkflow = labels['github.workflow'] ||
+                           labels['ci.workflow'] ||
+                           labels['GITHUB_WORKFLOW'];
+
+      // 构建时间
       const buildTime = labels['org.opencontainers.image.created'] ||
                        labels['build.time'];
 
@@ -345,6 +366,7 @@ export class MonitorDataService {
         imageId,
         buildCommit: buildCommit?.substring(0, 8), // 只保留前8位
         buildBranch,
+        buildTag,
         buildWorkflow,
         buildTime,
       };
