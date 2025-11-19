@@ -52,6 +52,9 @@ export class OverviewPanel extends BasePanel {
       },
       scrollable: true,
       alwaysScroll: true,
+      keys: true,
+      vi: true,
+      mouse: true,
       label: ' 概览 ',
     });
 
@@ -75,6 +78,9 @@ export class OverviewPanel extends BasePanel {
       },
       scrollable: true,
       alwaysScroll: true,
+      keys: true,
+      vi: true,
+      mouse: true,
       scrollbar: {
         ch: '█',
         style: {

@@ -205,7 +205,7 @@ export class PanelManager {
       left: 0,
       width: '100%',
       height: 3,
-      content: ' {bold}导航{/bold}: [0-4]=面板 [←→/Tab]=切换 [↑↓/jk]=滚动 [PgUp/PgDn]=快速滚动 | {bold}操作{/bold}: [r]=刷新 [q]=退出',
+      content: ' {bold}面板{/bold}: [0-4]=跳转 [Tab/H/L]=切换 | {bold}滚动{/bold}: [↑↓/jk]=逐行 [PgUp/PgDn]=快速 [鼠标滚轮] | {bold}操作{/bold}: [r]=刷新 [q]=退出',
       tags: true,
       border: {
         type: 'single',
@@ -252,40 +252,13 @@ export class PanelManager {
       this.refreshCurrentPanel();
     });
 
-    // 左右箭头：面板导航
-    this.screen.key(['left', 'h'], () => {
+    // H/L（大写）：面板导航
+    this.screen.key(['S-h'], () => {
       this.switchToPrevious();
     });
 
-    this.screen.key(['right', 'l'], () => {
+    this.screen.key(['S-l'], () => {
       this.switchToNext();
-    });
-
-    // 上下箭头：滚动当前面板
-    this.screen.key(['up', 'k'], () => {
-      this.scrollCurrentPanel(-1);
-    });
-
-    this.screen.key(['down', 'j'], () => {
-      this.scrollCurrentPanel(1);
-    });
-
-    // Page Up/Down：快速滚动
-    this.screen.key(['pageup'], () => {
-      this.scrollCurrentPanel(-10);
-    });
-
-    this.screen.key(['pagedown'], () => {
-      this.scrollCurrentPanel(10);
-    });
-
-    // 鼠标滚轮支持
-    this.screen.on('wheeldown', () => {
-      this.scrollCurrentPanel(3);
-    });
-
-    this.screen.on('wheelup', () => {
-      this.scrollCurrentPanel(-3);
     });
   }
 
@@ -314,6 +287,20 @@ export class PanelManager {
     // 显示新 Panel
     this.currentPanel = type;
     panel.show();
+
+    // 设置焦点到新面板的容器（使其能接收键盘事件）
+    const container = (panel as any).container;
+    if (container && container.focus) {
+      container.focus();
+    }
+
+    // OverviewPanel 特殊处理（设置焦点到 leftBox）
+    if (type === 'overview') {
+      const leftBox = (panel as any).leftBox;
+      if (leftBox && leftBox.focus) {
+        leftBox.focus();
+      }
+    }
 
     // 更新 Footer 提示
     this.updateFooter();
@@ -352,34 +339,6 @@ export class PanelManager {
     const panel = this.panels.get(this.currentPanel);
     if (panel) {
       await panel.refresh();
-    }
-  }
-
-  /**
-   * 滚动当前面板
-   * @param lines 滚动行数（负数向上，正数向下）
-   */
-  private scrollCurrentPanel(lines: number): void {
-    const panel = this.panels.get(this.currentPanel);
-    if (panel) {
-      const container = (panel as any).container;
-      if (container && container.scroll) {
-        container.scroll(lines);
-        this.screen.render();
-      }
-
-      // OverviewPanel 特殊处理（有 leftBox 和 rightBox）
-      if (this.currentPanel === 'overview') {
-        const leftBox = (panel as any).leftBox;
-        const rightBox = (panel as any).rightBox;
-        if (leftBox && leftBox.scroll) {
-          leftBox.scroll(lines);
-        }
-        if (rightBox && rightBox.scroll) {
-          rightBox.scroll(lines);
-        }
-        this.screen.render();
-      }
     }
   }
 

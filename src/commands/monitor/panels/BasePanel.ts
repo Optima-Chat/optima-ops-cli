@@ -54,6 +54,9 @@ export abstract class BasePanel {
       },
       scrollable: true,
       alwaysScroll: true,
+      keys: true, // 启用键盘输入
+      vi: true,   // 启用 vi 风格导航（j/k）
+      mouse: true, // 启用鼠标
       scrollbar: {
         ch: '█',
         style: {
