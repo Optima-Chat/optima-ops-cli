@@ -443,12 +443,18 @@ export class MonitorDataService {
       try {
         return await this.executeSSHCommandInternal(host, command);
       } catch (error: any) {
-        // ECONNRESET 是临时性错误，可以重试
-        const isRetryable = error.message?.includes('ECONNRESET') ||
-                           error.message?.includes('ETIMEDOUT');
+        const errorMsg = error.message || String(error);
+
+        // 临时性错误可以重试
+        const isRetryable = errorMsg.includes('ECONNRESET') ||
+                           errorMsg.includes('ETIMEDOUT') ||
+                           errorMsg.includes('ECONNREFUSED') ||
+                           errorMsg.includes('connect lost before handshake') ||
+                           errorMsg.includes('Connection lost') ||
+                           errorMsg.includes('Socket closed');
 
         if (isRetryable && attempt < retries) {
-          // 等待一小段时间后重试
+          // 等待一小段时间后重试（渐进式退避）
           await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
           continue;
         }
@@ -525,9 +531,13 @@ export class MonitorDataService {
           } else if (message.includes('ETIMEDOUT')) {
             message = `Connection timeout to ${host}`;
           } else if (message.includes('ECONNRESET')) {
-            message = `Connection reset by ${host} (possibly due to host key change)`;
+            message = `Connection reset by ${host}`;
           } else if (message.includes('EHOSTUNREACH')) {
             message = `Host ${host} unreachable`;
+          } else if (message.includes('connect lost before handshake') ||
+                     message.includes('Connection lost') ||
+                     message.includes('Socket closed')) {
+            message = `SSH handshake failed for ${host} (connection lost)`;
           } else if (message.includes('All configured authentication methods failed')) {
             message = `SSH authentication failed for ${host}`;
           }
