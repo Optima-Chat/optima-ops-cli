@@ -48,6 +48,7 @@ export const dashboardCommand = new Command('dashboard')
         smartCSR: true,
         title: `Optima ${environment} Multi-Panel Monitor`,
         fullUnicode: true,
+        mouse: true, // 启用鼠标支持
         style: {
           fg: '#cdd6f4',
           bg: '#1e1e2e',

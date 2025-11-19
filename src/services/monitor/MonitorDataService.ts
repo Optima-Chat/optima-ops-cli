@@ -137,6 +137,13 @@ export class MonitorDataService {
     const uptimeResult = await this.executeSSHCommand(host, 'uptime -p');
     const uptime = uptimeResult.trim();
 
+    // CPU 使用率（通过 top 获取，1秒采样）
+    const cpuResult = await this.executeSSHCommand(
+      host,
+      'top -bn2 -d 1 | grep "Cpu(s)" | tail -n 1 | awk \'{print $2}\' | cut -d\'%\' -f1'
+    );
+    const cpuUsage = parseFloat(cpuResult.trim()) || 0;
+
     // 内存使用
     const memResult = await this.executeSSHCommand(host, 'free -m | grep Mem:');
     const memParts = memResult.trim().split(/\s+/);
@@ -167,6 +174,7 @@ export class MonitorDataService {
         environment,
         instanceId,
         instanceType,
+        cpuUsage,
         memoryUsed,
         memoryTotal,
         diskUsed,

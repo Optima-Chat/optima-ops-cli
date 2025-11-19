@@ -86,6 +86,22 @@ export class EC2Panel extends BasePanel {
       content += `   {bold}运行时间{/bold}: ${stat.uptime}\n`;
       content += '\n';
 
+      // CPU 使用
+      if (stat.cpuUsage !== undefined) {
+        const cpuPercent = stat.cpuUsage.toFixed(1);
+        const cpuColor = stat.cpuUsage > 80 ? 'red' : stat.cpuUsage > 50 ? 'yellow' : 'green';
+
+        content += `   {bold}CPU 使用{/bold}\n`;
+        content += `     {${cpuColor}-fg}${cpuPercent}%{/${cpuColor}-fg}\n`;
+
+        // 进度条
+        const cpuBarWidth = 50;
+        const cpuFilled = Math.round((stat.cpuUsage / 100) * cpuBarWidth);
+        const cpuBar = '█'.repeat(cpuFilled) + '░'.repeat(cpuBarWidth - cpuFilled);
+        content += `     {${cpuColor}-fg}${cpuBar}{/${cpuColor}-fg}\n`;
+        content += '\n';
+      }
+
       // 内存使用
       const memPercent =
         stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(1) : '0';

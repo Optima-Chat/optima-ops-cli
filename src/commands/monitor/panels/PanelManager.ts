@@ -89,7 +89,7 @@ export class PanelManager {
   }
 
   /**
-   * 创建 Header
+   * 创建 Header（显示标题 + 系统摘要 + 时间）
    */
   private createHeader(): blessed.Widgets.BoxElement {
     const envCapitalized = this.environment.charAt(0).toUpperCase() + this.environment.slice(1);
@@ -117,14 +117,26 @@ export class PanelManager {
       parent: container,
       top: 0,
       left: 1,
-      content: `Optima ${envCapitalized} Monitor`,
+      content: `{bold}Optima ${envCapitalized} Monitor{/bold}`,
+      tags: true,
       style: {
         fg: '#cba6f7',
-        bold: true,
       },
     });
 
-    // 右侧时间（稍后实现动态更新）
+    // 中间摘要信息（动态更新）
+    const summaryBox = blessed.text({
+      parent: container,
+      top: 0,
+      left: 'center',
+      content: '',
+      tags: true,
+      style: {
+        fg: '#a6adc8',
+      },
+    });
+
+    // 右侧时间
     const timeBox = blessed.text({
       parent: container,
       top: 0,
@@ -135,11 +147,11 @@ export class PanelManager {
       },
     });
 
-    // 更新时间
-    const updateTime = () => {
+    // 更新时间和摘要
+    const updateHeader = () => {
+      // 时间
       const now = new Date();
       const timeStr = now.toLocaleString('zh-CN', {
-        year: 'numeric',
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -148,11 +160,37 @@ export class PanelManager {
         hour12: false,
       });
       timeBox.setContent(timeStr);
+
+      // 摘要信息（从缓存读取）
+      const services = this.cache.getServices(this.environment);
+      const ec2 = this.cache.getEC2(this.environment);
+      const docker = this.cache.getDocker(this.environment);
+
+      let summary = '';
+      if (services && services.length > 0) {
+        const healthy = services.filter((s) => s.prod.health === 'healthy').length;
+        const total = services.length;
+        const color = healthy === total ? 'green' : healthy > total / 2 ? 'yellow' : 'red';
+        summary += `{${color}-fg}${healthy}/${total} 服务{/${color}-fg}`;
+      }
+
+      if (ec2 && ec2.length > 0) {
+        const online = ec2.filter((e) => !e.offline).length;
+        const total = ec2.length;
+        summary += ` | {cyan-fg}${online}/${total} EC2{/cyan-fg}`;
+      }
+
+      if (docker && docker.length > 0) {
+        const totalContainers = docker.reduce((sum, d) => sum + (d.stats?.length || 0), 0);
+        summary += ` | {blue-fg}${totalContainers} 容器{/blue-fg}`;
+      }
+
+      summaryBox.setContent(summary);
       this.screen.render();
     };
 
-    updateTime();
-    setInterval(updateTime, 1000);
+    updateHeader();
+    setInterval(updateHeader, 2000); // 2秒更新一次摘要
 
     return container;
   }
@@ -167,7 +205,8 @@ export class PanelManager {
       left: 0,
       width: '100%',
       height: 3,
-      content: ' 导航: [0-4]=切换面板 [Tab/Shift+Tab]=循环 [r]=刷新 [q]=退出',
+      content: ' {bold}导航{/bold}: [0-4]=面板 [←→/Tab]=切换 [↑↓/jk]=滚动 [PgUp/PgDn]=快速滚动 | {bold}操作{/bold}: [r]=刷新 [q]=退出',
+      tags: true,
       border: {
         type: 'single',
       },
@@ -211,6 +250,42 @@ export class PanelManager {
     // r: 手动刷新当前 Panel
     this.screen.key(['r'], () => {
       this.refreshCurrentPanel();
+    });
+
+    // 左右箭头：面板导航
+    this.screen.key(['left', 'h'], () => {
+      this.switchToPrevious();
+    });
+
+    this.screen.key(['right', 'l'], () => {
+      this.switchToNext();
+    });
+
+    // 上下箭头：滚动当前面板
+    this.screen.key(['up', 'k'], () => {
+      this.scrollCurrentPanel(-1);
+    });
+
+    this.screen.key(['down', 'j'], () => {
+      this.scrollCurrentPanel(1);
+    });
+
+    // Page Up/Down：快速滚动
+    this.screen.key(['pageup'], () => {
+      this.scrollCurrentPanel(-10);
+    });
+
+    this.screen.key(['pagedown'], () => {
+      this.scrollCurrentPanel(10);
+    });
+
+    // 鼠标滚轮支持
+    this.screen.on('wheeldown', () => {
+      this.scrollCurrentPanel(3);
+    });
+
+    this.screen.on('wheelup', () => {
+      this.scrollCurrentPanel(-3);
     });
   }
 
@@ -277,6 +352,34 @@ export class PanelManager {
     const panel = this.panels.get(this.currentPanel);
     if (panel) {
       await panel.refresh();
+    }
+  }
+
+  /**
+   * 滚动当前面板
+   * @param lines 滚动行数（负数向上，正数向下）
+   */
+  private scrollCurrentPanel(lines: number): void {
+    const panel = this.panels.get(this.currentPanel);
+    if (panel) {
+      const container = (panel as any).container;
+      if (container && container.scroll) {
+        container.scroll(lines);
+        this.screen.render();
+      }
+
+      // OverviewPanel 特殊处理（有 leftBox 和 rightBox）
+      if (this.currentPanel === 'overview') {
+        const leftBox = (panel as any).leftBox;
+        const rightBox = (panel as any).rightBox;
+        if (leftBox && leftBox.scroll) {
+          leftBox.scroll(lines);
+        }
+        if (rightBox && rightBox.scroll) {
+          rightBox.scroll(lines);
+        }
+        this.screen.render();
+      }
     }
   }
 
