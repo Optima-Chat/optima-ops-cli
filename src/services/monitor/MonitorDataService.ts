@@ -105,21 +105,16 @@ export class MonitorDataService {
 
   /**
    * 获取 EC2 资源使用情况
+   * 注意：总是获取所有环境（production + stage + shared）
    */
   async fetchEC2Stats(): Promise<EC2Stats[]> {
-    const hosts = this.getHosts();
-    const results: EC2Stats[] = [];
+    const results = await Promise.all([
+      this.fetchEC2StatsForHost('ec2-prod.optima.shop', 'production'),
+      this.fetchEC2StatsForHost('ec2-stage.optima.shop', 'stage'),
+      this.fetchEC2StatsForHost('13.251.46.219', 'shared'),
+    ]);
 
-    for (const [env, host] of Object.entries(hosts)) {
-      try {
-        const stats = await this.fetchEC2StatsForHost(host, env as any);
-        results.push(stats);
-      } catch (error: any) {
-        console.error(`获取 ${env} EC2 数据失败:`, error.message);
-      }
-    }
-
-    return results;
+    return results.filter((r): r is EC2Stats => r !== null);
   }
 
   /**
@@ -128,7 +123,8 @@ export class MonitorDataService {
   private async fetchEC2StatsForHost(
     host: string,
     environment: 'production' | 'stage' | 'shared'
-  ): Promise<EC2Stats> {
+  ): Promise<EC2Stats | null> {
+    try {
     // 实例信息
     const instanceIdResult = await this.executeSSHCommand(host, 'ec2-metadata --instance-id');
     const instanceId = instanceIdResult.trim().split(':')[1]?.trim() || 'unknown';
@@ -166,36 +162,39 @@ export class MonitorDataService {
     const diskUsed = rootDisk?.used || 0;
     const diskTotal = rootDisk?.total || 0;
 
-    return {
-      environment,
-      instanceId,
-      instanceType,
-      memoryUsed,
-      memoryTotal,
-      diskUsed,
-      diskTotal,
-      disks,
-      uptime,
-    };
+      return {
+        environment,
+        instanceId,
+        instanceType,
+        memoryUsed,
+        memoryTotal,
+        diskUsed,
+        diskTotal,
+        disks,
+        uptime,
+      };
+    } catch (error: any) {
+      console.error(`获取 ${environment} EC2 数据失败:`, error.message);
+      return null;
+    }
   }
 
   /**
    * 获取 Docker 容器资源使用
+   * 注意：总是获取所有环境（production + stage + shared）
    */
   async fetchDockerStats(): Promise<DockerStats[]> {
-    const hosts = this.getHosts();
-    const results: DockerStats[] = [];
+    const [prodStats, stageStats, sharedStats] = await Promise.all([
+      this.fetchDockerStatsForHost('ec2-prod.optima.shop', 'production'),
+      this.fetchDockerStatsForHost('ec2-stage.optima.shop', 'stage'),
+      this.fetchDockerStatsForHost('13.251.46.219', 'shared'),
+    ]);
 
-    for (const [env, host] of Object.entries(hosts)) {
-      try {
-        const stats = await this.fetchDockerStatsForHost(host, env as any);
-        results.push(stats);
-      } catch (error: any) {
-        console.error(`获取 ${env} Docker 数据失败:`, error.message);
-      }
-    }
-
-    return results;
+    return [
+      { environment: 'production', stats: prodStats },
+      { environment: 'stage', stats: stageStats },
+      { environment: 'shared', stats: sharedStats },
+    ];
   }
 
   /**
@@ -204,7 +203,8 @@ export class MonitorDataService {
   private async fetchDockerStatsForHost(
     host: string,
     environment: 'production' | 'stage' | 'shared'
-  ): Promise<DockerStats> {
+  ): Promise<ContainerStats[]> {
+    try {
     const result = await this.executeSSHCommand(
       host,
       'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"'
@@ -239,7 +239,11 @@ export class MonitorDataService {
         };
       });
 
-    return { environment, stats };
+      return stats;
+    } catch (error: any) {
+      console.error(`获取 ${environment} Docker 数据失败:`, error.message);
+      return [];
+    }
   }
 
   /**
@@ -337,23 +341,4 @@ export class MonitorDataService {
     return value * (multipliers[unit] || 1);
   }
 
-  /**
-   * 获取主机列表
-   */
-  private getHosts(): Record<string, string> {
-    if (this.environment === 'production') {
-      return {
-        production: 'ec2-prod.optima.shop',
-      };
-    } else if (this.environment === 'stage') {
-      return {
-        stage: 'ec2-stage.optima.shop',
-      };
-    } else {
-      return {
-        production: 'ec2-prod.optima.shop',
-        stage: 'ec2-stage.optima.shop',
-      };
-    }
-  }
 }
