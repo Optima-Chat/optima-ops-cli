@@ -14,7 +14,7 @@ Optima Ops CLI - Optima 基础设施的 DevOps 和监控 CLI 工具。提供只�
 3. **完全自动化** - 自动 SSH 隧道、动态 EC2 查找、workflow 检测、密码管理
 4. **智能验证** - 理解构建时 vs 运行时变量、SSM 参数转换
 
-**当前状态**: ✅ 生产就绪（47 个命令，10 个服务，7 个模块）
+**当前状态**: ✅ 生产就绪（50 个命令，10 个服务，8 个模块）
 
 ---
 
@@ -88,6 +88,84 @@ optima-ops validate diff user-auth --from-env prod --to-env stage
 
 ---
 
+## 实时监控仪表盘 (2025-11-20)
+
+### Monitor TUI Dashboard ⭐ **新增**
+
+**多面板 Terminal UI 监控仪表盘**，实时查看系统、服务、容器状态。
+
+**架构**:
+- 默认：5 面板多视图仪表盘 (dashboard.ts)
+- 可选：经典单面板精简版 (dashboard-blessed.ts)
+
+**5 个面板详细功能**:
+
+| 面板 | 名称 | 内容 |
+|------|------|------|
+| Panel 0 | 概览 | 系统整体健康状态汇总（服务、EC2、Docker、蓝绿部署） |
+| Panel 1 | 服务健康 | 所有服务详细健康状态（HTTP /health + 容器状态 + 版本/分支/commit + 构建时间） |
+| Panel 2 | EC2 资源 | EC2 实例资源使用（CPU、内存、磁盘、运行时间、实例 ID/类型） |
+| Panel 3 | Docker 容器 | Docker 容器资源使用（CPU、内存、网络 I/O、版本/分支、运行时长） |
+| Panel 4 | 蓝绿部署 | 蓝绿部署状态和流量分配（任务数、健康状态、流量百分比） |
+
+**使用方式**:
+```bash
+# 启动多面板监控（默认）
+optima-ops monitor [--env production|stage] [--interval 5]
+
+# 显式启动多面板
+optima-ops monitor dashboard [--env production|stage] [--interval 5]
+
+# 启动经典单面板（精简版）
+optima-ops monitor legacy [--env production|stage] [--interval 5]
+```
+
+**键盘导航**:
+- `0-4`: 直接切换到指定面板
+- `Tab` / `Shift+Tab`: 循环切换面板
+- `r`: 手动刷新当前面板
+- `q` / `Esc`: 退出
+
+**技术特性**:
+- ✅ 实时自动刷新（可配置间隔，默认 5 秒）
+- ✅ SSH 连接池优化（复用连接，减少开销）
+- ✅ 内存优化（使用 Buffer.concat 代替字符串拼接）
+- ✅ 后台数据刷新（不阻塞 UI）
+- ✅ CPU 使用率计算（通过 /proc/stat 差值计算，而非 top 命令）
+- ✅ 完整的构建信息显示（tag、branch、commit、workflow、时间）
+- ✅ 离线检测（SSH 超时 10 秒自动标记离线）
+- ✅ 彩色主题（Catppuccin Mocha 配色）
+
+**Panel Manager 架构**:
+```typescript
+// 后台数据刷新，不阻塞 UI
+class PanelManager {
+  - startBackgroundRefresh(): 定时刷新所有环境数据
+  - DataCache: 统一数据缓存层
+  - Panel instances: 从缓存读取，立即渲染
+}
+
+// 面板系统
+- BasePanel: 基础面板类（show/hide/render）
+- OverviewPanel: 概览面板（左侧概览 + 右侧错误日志）
+- ServicesPanel: 服务健康面板
+- EC2Panel: EC2 资源面板
+- DockerPanel: Docker 容器面板
+- BlueGreenPanel: 蓝绿部署面板
+```
+
+**性能优化**:
+- SSH 连接复用：减少连接开销
+- 批量数据获取：并发获取 prod/stage/shared 环境数据
+- 轻量级 CPU 监控：使用 /proc/stat（~100 bytes）代替 top 命令（~300MB）
+- Buffer.concat：避免 SSH 流数据字符串拼接导致的内存倍增
+
+**已知限制**:
+- CPU 使用率需要 1 秒间隔采样（目前通过缓存优化，避免阻塞）
+- 仅支持 Linux 环境（依赖 /proc 文件系统）
+
+---
+
 ## 服务覆盖
 
 **10 个服务（100%）**:
@@ -127,19 +205,41 @@ npm start
 src/
 ├── index.ts                       # CLI 入口点
 ├── commands/                      # 命令模块
+│   ├── monitor/                  # 实时监控（3 命令）⭐ 新增
+│   │   ├── index.ts              # Monitor 命令入口
+│   │   ├── dashboard.ts          # 多面板 TUI 仪表盘（默认）
+│   │   ├── dashboard-blessed.ts  # 经典单面板仪表盘
+│   │   └── panels/               # 面板组件
+│   │       ├── BasePanel.ts      # 基础面板类
+│   │       ├── OverviewPanel.ts  # Panel 0: 概览
+│   │       ├── ServicesPanel.ts  # Panel 1: 服务健康
+│   │       ├── EC2Panel.ts       # Panel 2: EC2 资源
+│   │       ├── DockerPanel.ts    # Panel 3: Docker 容器
+│   │       └── BlueGreenPanel.ts # Panel 4: 蓝绿部署
 │   ├── services/                 # 服务管理（5 命令）
 │   ├── deploy/                   # 部署管理（5 命令）
 │   ├── db/                       # 数据库管理（20 命令）
 │   ├── infra/                    # 基础设施监控（5 命令）
 │   ├── logs/                     # 日志分析（4 命令）
 │   ├── config/                   # 配置管理（4 命令）
-│   └── validate/                 # 部署验证（4 命令）⭐ 新增
+│   └── validate/                 # 部署验证（4 命令）
 ├── schemas/                       # ⭐ 新增
 │   └── service-schemas/
 │       └── user-auth.schema.ts   # user-auth Zod schema
 ├── loaders/                       # ⭐ 新增
 │   ├── config-loader.ts          # 配置加载器（SSM, Container, GitHub）
 │   └── spec-loader.ts            # config-spec.yaml 加载器
+├── services/                      # 业务逻辑服务层
+│   ├── monitor/                  # Monitor 相关服务 ⭐ 新增
+│   │   ├── MonitorDataService.ts # 数据获取服务（Services, EC2, Docker）
+│   │   ├── BlueGreenService.ts   # 蓝绿部署服务（ECS 任务、流量分配）
+│   │   └── DataCache.ts          # 统一数据缓存层
+│   └── aws/
+│       └── ecs-service.ts        # ECS 服务管理
+├── ui/                            # UI 组件层 ⭐ 新增
+│   └── blessed/
+│       ├── BlessedDashboard.ts   # 经典单面板 UI
+│       └── PanelManager.ts       # 多面板管理器（后台刷新、缓存）
 ├── db/
 │   ├── client.ts                 # PostgreSQL 客户端
 │   ├── tunnel.ts                 # SSH 隧道管理 ⭐
@@ -154,11 +254,14 @@ src/
 │   ├── ssh.ts                    # SSH 客户端（命令白名单）
 │   ├── github.ts                 # GitHub CLI 封装 + workflow 检测 ⭐
 │   ├── timer.ts                  # 命令计时系统 ⭐ 新增
+│   ├── dashboard-logger.ts       # Dashboard 日志记录器 ⭐ 新增
 │   └── aws/
 │       ├── ssm.ts                # Parameter Store
 │       ├── ec2.ts                # EC2 实例 + 动态查找 ⭐
 │       ├── rds.ts                # RDS 数据库
 │       └── logs.ts               # CloudWatch Logs
+├── types/                         # TypeScript 类型定义 ⭐ 新增
+│   └── monitor.ts                # Monitor 相关类型（ServiceHealth, EC2Stats, DockerStats, BlueGreenStatus）
 └── services-config.json           # 服务配置 ⭐ 新增
 ```
 
@@ -378,7 +481,37 @@ export DEBUG=1
 
 ---
 
-## 可用命令（Phase 1-7）
+## 可用命令（Phase 1-8）
+
+### Monitor 模块（3 命令）⭐ **新增**
+
+```bash
+# 启动多面板监控仪表盘（默认）
+optima-ops monitor [--env production|stage] [--interval 5]
+
+# 显式启动多面板监控
+optima-ops monitor dashboard [--env production|stage] [--interval 5]
+
+# 启动经典单面板监控（精简版）
+optima-ops monitor legacy [--env production|stage] [--interval 5]
+```
+
+**功能**:
+- 实时监控所有服务健康状态（HTTP /health + 容器状态）
+- EC2 资源使用（CPU、内存、磁盘）
+- Docker 容器资源使用（CPU、内存、网络 I/O）
+- 蓝绿部署状态和流量分配
+- 构建信息显示（tag、branch、commit、workflow、时间）
+
+**选项**:
+- `--env`: 环境选择（production 或 stage，默认 production）
+- `--interval`: 刷新间隔（秒，默认 5）
+
+**键盘快捷键** (多面板模式):
+- `0-4`: 切换到指定面板（概览、服务、EC2、Docker、蓝绿部署）
+- `Tab` / `Shift+Tab`: 循环切换面板
+- `r`: 手动刷新当前面板
+- `q` / `Esc`: 退出
 
 ### Services 模块（5 命令）
 
@@ -854,5 +987,5 @@ function loadServicesConfig(): ServicesConfigFile {
 
 ---
 
-**最后更新**: 2025-11-15
+**最后更新**: 2025-11-20
 **状态**: ✅ 生产就绪

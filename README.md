@@ -87,6 +87,43 @@ optima-ops infra network
 
 ## 可用命令
 
+### Monitor 实时监控仪表盘 ⭐ **新功能**
+
+**多面板 TUI 监控仪表盘**，实时查看系统、服务、容器状态。
+
+```bash
+# 启动多面板监控仪表盘（默认）
+optima-ops monitor [--env production|stage] [--interval 5]
+
+# 显式启动多面板
+optima-ops monitor dashboard [--env production|stage] [--interval 5]
+
+# 启动经典单面板（精简版）
+optima-ops monitor legacy [--env production|stage] [--interval 5]
+```
+
+**多面板 Dashboard 功能**（5个面板）:
+- **Panel 0: 概览** - 系统整体健康状态（服务、EC2、Docker综合视图）
+- **Panel 1: 服务健康** - 所有服务详细健康状态（HTTP端点 + 容器状态 + 版本信息）
+- **Panel 2: EC2 资源** - EC2 实例资源使用（CPU、内存、磁盘、运行时间）
+- **Panel 3: Docker 容器** - Docker 容器资源使用（CPU、内存、版本/分支、运行时长）
+- **Panel 4: 蓝绿部署** - 蓝绿部署状态和流量分配
+
+**键盘导航**:
+- `0-4`: 直接切换到指定面板
+- `Tab` / `Shift+Tab`: 循环切换面板
+- `r`: 手动刷新当前面板
+- `q` / `Esc`: 退出
+
+**特性**:
+- ✅ 实时自动刷新（可配置间隔）
+- ✅ SSH 连接池优化（复用连接，减少开销）
+- ✅ 内存优化（使用 Buffer.concat 代替字符串拼接）
+- ✅ 后台数据刷新（不阻塞 UI）
+- ✅ 完整的构建信息显示（tag、branch、commit、workflow、时间）
+
+---
+
 ### Services 服务管理（5个命令）
 
 ```bash
