@@ -17,8 +17,8 @@ import { dashboardLogger } from '../../utils/dashboard-logger.js';
 import { Client as SSH2Client } from 'ssh2';
 import fs from 'fs';
 
-export const dashboardBlessedCommand = new Command('dashboard-blessed')
-  .description('Launch interactive TUI monitoring dashboard (blessed-based, no flicker)')
+export const legacyDashboardCommand = new Command('legacy')
+  .description('经典单面板监控仪表盘（无闪烁版本）')
   .option('--env <environment>', 'Environment to monitor', 'production')
   .option('--interval <seconds>', 'Refresh interval in seconds', '5')
   .action(async (options) => {
