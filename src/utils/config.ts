@@ -54,7 +54,7 @@ export const ENV_CONFIG = {
     services: ['user-auth', 'mcp-host', 'commerce-backend', 'agentic-chat'],
   },
   shared: {
-    ec2Host: '13.251.46.219',
+    ec2Host: 'shared.optima.onl',
     ec2Environment: 'shared',
     rdsHost: '',
     albDnsName: '',
@@ -91,7 +91,7 @@ const config = new Conf<ConfigSchema>({
         keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
       },
       shared: {
-        host: '13.251.46.219',
+        host: 'shared.optima.onl',
         user: 'ec2-user',
         keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
       },

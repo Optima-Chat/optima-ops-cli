@@ -23,7 +23,8 @@ program
   .name('optima-ops')
   .description('System operations and monitoring CLI for Optima')
   .version('1.0.0')
-  .option('--env <env>', '设置环境 (production/stage/development)');
+  .enablePositionalOptions()
+  .passThroughOptions();
 
 // 注册命令模块
 program.addCommand(servicesCommand);  // 服务管理 (Phase 1)

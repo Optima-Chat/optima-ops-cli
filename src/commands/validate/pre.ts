@@ -18,13 +18,13 @@ export const preCommand = new Command('pre')
   .argument('<service>', '服务名称')
   .option('--env <env>', '环境 (production/stage/development)')
   .option('--source <source>', '配置源 (ssm/infisical，默认根据环境自动选择)')
-  .option('--platform <platform>', '部署平台 (ec2/ecs，默认 ec2)')
+  .option('--platform <platform>', '部署平台 (ec2/ecs，默认 ecs)')
   .option('--json', 'JSON 格式输出')
   .action(async (service, options) => {
     try {
       const timer = new CommandTimer();
       const env: Environment = options.env || getCurrentEnvironment();
-      const platform = options.platform || 'ec2';
+      const platform = options.platform || 'ecs';
 
       // 根据环境和平台自动选择配置源
       let source: ConfigSource = options.source;
