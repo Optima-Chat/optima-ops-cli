@@ -4,6 +4,7 @@ import { loadConfigSpec, getRequiredVariables, getSensitiveVariables, getDepreca
 import { isJsonOutput, outputSuccess, printTitle, createTable } from '../../utils/output.js';
 import { handleError } from '../../utils/error.js';
 import { getServiceConfig } from '../../utils/config.js';
+import { getServicePath, isInWorkspace, getWorkspaceRoot } from '../../utils/workspace.js';
 
 export const specCommand = new Command('spec')
   .description('查看和验证服务配置规范')
@@ -22,9 +23,21 @@ export const specCommand = new Command('spec')
         throw new Error(`未知服务: ${service}`);
       }
 
-      // 根据服务名推断仓库路径
-      // 核心服务在 /mnt/d/work_optima_new/core-services/<service-name>/
-      const servicePath = `/mnt/d/work_optima_new/core-services/${service}`;
+      // 使用 workspace 模块获取服务路径
+      let servicePath = getServicePath(service);
+
+      // 如果 workspace 中未找到，回退到硬编码路径
+      if (!servicePath) {
+        // 硬编码路径用于兼容非 workspace 环境
+        servicePath = `/mnt/d/work_optima_new/core-services/${service}`;
+        if (!isJsonOutput()) {
+          console.log(chalk.yellow(`⚠️  未在 workspace 中找到服务 ${service}，使用默认路径\n`));
+        }
+      } else if (!isJsonOutput()) {
+        const workspaceRoot = getWorkspaceRoot();
+        console.log(chalk.gray(`📁 Workspace: ${workspaceRoot}`));
+        console.log(chalk.gray(`📁 服务路径: ${servicePath}\n`));
+      }
 
       // 加载 config-spec.yaml
       const spec = loadConfigSpec(servicePath);
