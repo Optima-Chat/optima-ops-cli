@@ -232,6 +232,29 @@ validate_pre() {
         fi
     fi
 
+    # 4. 配置验证 (通过 optima-ops CLI)
+    print_info "验证 Infisical 配置..."
+
+    # 检查 optima-ops CLI 是否可用
+    OPS_CLI_DIR="/mnt/d/work_optima_new/cli-tools/optima-ops-cli"
+    if [[ -d "$OPS_CLI_DIR" ]]; then
+        # 检查是否设置了 Infisical 环境变量
+        if [[ -n "$INFISICAL_CLIENT_ID" ]] && [[ -n "$INFISICAL_CLIENT_SECRET" ]]; then
+            # 运行配置验证
+            if cd "$OPS_CLI_DIR" && npm run dev -- validate pre "$SERVICE_NAME" --env "$ENVIRONMENT" --platform ecs --source infisical 2>/dev/null; then
+                print_success "Infisical 配置验证通过"
+            else
+                print_warning "Infisical 配置验证失败或有警告"
+                echo "  提示: 请检查 Infisical 中的配置是否完整"
+            fi
+        else
+            print_warning "跳过 Infisical 配置验证 (未设置 INFISICAL_CLIENT_ID/INFISICAL_CLIENT_SECRET)"
+            echo "  提示: 设置环境变量后可启用配置验证"
+        fi
+    else
+        print_warning "跳过配置验证 (optima-ops-cli 不可用)"
+    fi
+
     echo ""
     print_success "部署前验证通过！"
     return 0

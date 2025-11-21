@@ -23,8 +23,8 @@ export const specCommand = new Command('spec')
       }
 
       // 根据服务名推断仓库路径
-      // 假设服务仓库在 /mnt/d/GitHub/services/<service-name>/
-      const servicePath = `/mnt/d/GitHub/services/${service}`;
+      // 核心服务在 /mnt/d/work_optima_new/core-services/<service-name>/
+      const servicePath = `/mnt/d/work_optima_new/core-services/${service}`;
 
       // 加载 config-spec.yaml
       const spec = loadConfigSpec(servicePath);

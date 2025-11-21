@@ -1,5 +1,9 @@
 import { getParameter, getParametersByPath } from '../utils/aws/ssm.js';
 import { Environment } from '../utils/config.js';
+import { InfisicalConfigLoader, isInfisicalSupported } from './infisical-loader.js';
+
+// 重新导出 Infisical 相关
+export { InfisicalConfigLoader, isInfisicalSupported } from './infisical-loader.js';
 
 /**
  * 配置源类型
@@ -176,13 +180,22 @@ export class GitHubConfigLoader extends ConfigLoader {
 }
 
 /**
+ * 配置加载器选项
+ */
+export interface ConfigLoaderOptions {
+  sshClient?: any;
+  infisicalClientId?: string;
+  infisicalClientSecret?: string;
+}
+
+/**
  * 工厂函数：创建配置加载器
  */
 export function createConfigLoader(
   source: ConfigSource,
   service: string,
   environment: string,
-  options?: { sshClient?: any }
+  options?: ConfigLoaderOptions
 ): ConfigLoader {
   switch (source) {
     case 'ssm':
@@ -194,7 +207,23 @@ export function createConfigLoader(
       return new ContainerConfigLoader(service, environment, options.sshClient);
     case 'github':
       return new GitHubConfigLoader(service, environment);
+    case 'infisical':
+      return new InfisicalConfigLoader(
+        service,
+        environment,
+        options?.infisicalClientId,
+        options?.infisicalClientSecret
+      );
     default:
       throw new Error(`不支持的配置源: ${source}`);
   }
+}
+
+/**
+ * 根据环境自动选择配置源
+ * - stage 环境使用 Infisical
+ * - production 环境使用 SSM
+ */
+export function getDefaultConfigSource(environment: string): ConfigSource {
+  return environment === 'stage' ? 'infisical' : 'ssm';
 }

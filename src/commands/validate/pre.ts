@@ -1,7 +1,13 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { getCurrentEnvironment, Environment } from '../../utils/config.js';
-import { SSMConfigLoader } from '../../loaders/config-loader.js';
+import {
+  SSMConfigLoader,
+  ConfigSource,
+  createConfigLoader,
+  getDefaultConfigSource,
+  isInfisicalSupported
+} from '../../loaders/config-loader.js';
 import { userAuthSchema, userAuthMetadata } from '../../schemas/service-schemas/user-auth.schema.js';
 import { isJsonOutput, outputSuccess, printTitle, createTable } from '../../utils/output.js';
 import { handleError } from '../../utils/error.js';
@@ -11,14 +17,31 @@ export const preCommand = new Command('pre')
   .description('部署前验证配置完整性')
   .argument('<service>', '服务名称')
   .option('--env <env>', '环境 (production/stage/development)')
+  .option('--source <source>', '配置源 (ssm/infisical，默认根据环境自动选择)')
+  .option('--platform <platform>', '部署平台 (ec2/ecs，默认 ec2)')
   .option('--json', 'JSON 格式输出')
   .action(async (service, options) => {
     try {
       const timer = new CommandTimer();
       const env: Environment = options.env || getCurrentEnvironment();
+      const platform = options.platform || 'ec2';
+
+      // 根据环境和平台自动选择配置源
+      let source: ConfigSource = options.source;
+      if (!source) {
+        if (platform === 'ecs') {
+          // ECS 平台优先使用 Infisical
+          source = 'infisical';
+        } else {
+          // EC2 平台根据环境选择
+          source = getDefaultConfigSource(env);
+        }
+      }
 
       if (!isJsonOutput()) {
         printTitle(`✓ 部署前验证 - ${service} (${env})`);
+        console.log(chalk.gray(`  平台: ${platform}, 配置源: ${source}`));
+        console.log();
       }
 
       // 目前只支持 user-auth
@@ -26,12 +49,18 @@ export const preCommand = new Command('pre')
         throw new Error(`服务 ${service} 的 schema 暂未实现。当前仅支持: user-auth`);
       }
 
-      // 加载配置
-      if (!isJsonOutput()) {
-        console.log(chalk.white('正在从 AWS SSM 加载配置...'));
+      // 检查 Infisical 支持
+      if (source === 'infisical' && !isInfisicalSupported(service)) {
+        throw new Error(`服务 ${service} 不支持 Infisical 配置源`);
       }
 
-      const loader = new SSMConfigLoader(service, env);
+      // 加载配置
+      const sourceDisplayName = source === 'infisical' ? 'Infisical' : 'AWS SSM';
+      if (!isJsonOutput()) {
+        console.log(chalk.white(`正在从 ${sourceDisplayName} 加载配置...`));
+      }
+
+      const loader = createConfigLoader(source, service, env);
       const loadResult = await loader.load();
       timer.step('加载配置');
 
@@ -103,6 +132,8 @@ export const preCommand = new Command('pre')
         outputSuccess({
           service,
           environment: env,
+          platform,
+          source,
           passed,
           summary: {
             total_params: loadedKeys.length,
@@ -123,7 +154,8 @@ export const preCommand = new Command('pre')
         summaryTable.push(
           ['服务', service],
           ['环境', env],
-          ['配置源', 'AWS SSM Parameter Store'],
+          ['平台', platform],
+          ['配置源', sourceDisplayName],
           ['加载参数数', `${loadedKeys.length} 个`],
           ['必需参数数', `${requiredKeys.length} 个`],
           ['错误', errors.length > 0 ? chalk.red(errors.length.toString()) : chalk.green('0')],
