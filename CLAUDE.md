@@ -18,6 +18,20 @@ Optima Ops CLI - Optima 基础设施的 DevOps 和监控 CLI 工具。提供只�
 
 ---
 
+## ⚠️ 【重要 - 不要删除】SSM 中的 Infisical 共享凭证
+
+**所有服务共享的 Infisical 凭证存储在 SSM Parameter Store 中：**
+
+| SSM 参数路径 | 用途 |
+|-------------|------|
+| `/optima/shared/infisical/client-id` | Infisical Machine Identity Client ID |
+| `/optima/shared/infisical/client-secret` | Infisical Machine Identity Client Secret |
+| `/optima/shared/infisical/project-id` | Infisical Project ID |
+
+GitHub Actions workflow 从这些 SSM 参数读取 Infisical 凭证，无需在每个 repo 配置 secrets。
+
+---
+
 ## 最新功能 (2025-11-15)
 
 ### 配置驱动架构
