@@ -977,6 +977,62 @@ function loadServicesConfig(): ServicesConfigFile {
 
 ---
 
+## 自检指南 (2025-11-24)
+
+当需要检查 CLI 命令是否正常工作时，按以下指南进行只读测试。
+
+### 测试命令清单
+
+**推荐测试的命令**（只读、快速）：
+```bash
+# 本地命令
+npm run dev -- env
+npm run dev -- version
+
+# 服务模块
+npm run dev -- services health
+npm run dev -- services status
+npm run dev -- services logs user-auth --tail 5
+npm run dev -- services inspect user-auth
+
+# 基础设施模块
+npm run dev -- infra docker
+npm run dev -- infra disk
+npm run dev -- infra network
+
+# 日志模块
+npm run dev -- logs errors --service user-auth
+npm run dev -- logs tail user-auth
+```
+
+### 跳过的命令
+
+以下命令在自检时**不要测试**：
+
+1. **validate 模块所有命令** - 可能卡住或超时
+   - `validate pre` - 需要 Infisical 连接，可能超时
+   - `validate post` - 需要 SSH + 容器检查，耗时长
+   - `validate diff` - 同上
+
+2. **monitor 模块** - TUI 界面，无法自动化测试
+   - `monitor dashboard`
+   - `monitor legacy`
+
+3. **db 模块** - 需要先初始化凭证
+   - 需要先运行 `db init-credentials`
+
+### 已知问题 (2025-11-24)
+
+| 问题 | 命令 | 状态 | 说明 |
+|------|------|------|------|
+| `--help` 启动 dashboard | `optima-ops --help` | 🔴 Bug | 无命令时默认启动 monitor |
+| `--branch` 不支持 | `deploy *` | 🔴 Bug | gh CLI 版本不支持 --branch 参数 |
+| 系统命令被阻止 | `infra ec2` | 🟡 部分 | 部分系统信息显示 N/A |
+| SSM 路径问题 | `config list/show` | 🟡 配置 | 使用 `/optima/production/` 而非 `/optima/prod/` |
+| 凭证未初始化 | `db *` | 🟡 配置 | 需先运行 `db init-credentials` |
+
+---
+
 ## 链接
 
 - [设计文档](../../notes-private/projects/Optima Ops CLI 设计方案.md)
@@ -987,5 +1043,5 @@ function loadServicesConfig(): ServicesConfigFile {
 
 ---
 
-**最后更新**: 2025-11-20
-**状态**: ✅ 生产就绪
+**最后更新**: 2025-11-24
+**状态**: ⚠️ 部分功能需修复（deploy 模块、--help 参数）
