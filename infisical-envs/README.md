@@ -228,4 +228,41 @@ MCP 工具服务（comfy-mcp, fetch-mcp 等）配置待完成，目录下有 REA
 
 ---
 
-**最后更新**: 2025-11-25
+## ⚠️ 本地 shared-secrets 配置
+
+**重要**: `v2/shared-secrets/` 目录包含实际密钥值，不提交到 Git。
+
+首次使用需要手动创建：
+
+```bash
+# 1. 创建目录结构
+mkdir -p infisical-envs/v2/shared-secrets/{common,prod,staging}
+mkdir -p infisical-envs/v2/shared-secrets/common/third-party-apis
+
+# 2. 从 Infisical 导出或手动创建 .env 文件
+# 参考目录结构：
+# v2/shared-secrets/
+# ├── common/
+# │   ├── clickhouse.env
+# │   ├── infrastructure.env
+# │   └── third-party-apis/
+# │       ├── anthropic.env
+# │       ├── openai.env
+# │       ├── perplexity.env
+# │       ├── shopify.env
+# │       └── ...
+# ├── prod/
+# │   ├── database-names.env
+# │   ├── database-users.env
+# │   ├── domain-urls.env
+# │   ├── stripe.env
+# │   └── ...
+# └── staging/
+#     └── (同 prod 结构)
+```
+
+同步脚本 `scripts/sync_to_infisical.py` 会读取这些本地文件同步到 Infisical。
+
+---
+
+**最后更新**: 2025-12-02
