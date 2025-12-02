@@ -37,6 +37,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.940.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.400.0",
     "@aws-sdk/client-ec2": "^3.400.0",
     "@aws-sdk/client-ecs": "^3.400.0",
