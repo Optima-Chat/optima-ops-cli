@@ -15,6 +15,7 @@ import { configCommand } from './commands/config/index.js';
 import { validateCommand } from './commands/validate/index.js';
 import { monitorCommand } from './commands/monitor/index.js';
 import { ecsCommand } from './commands/ecs/index.js';
+import { oauthCommand } from './commands/oauth/index.js';
 import {
   getCurrentEnvironment,
   getCurrentEnvConfig,
@@ -45,6 +46,7 @@ program.addCommand(configCommand);    // 配置管理 (Phase 5)
 program.addCommand(validateCommand);  // 部署验证 (Phase 6)
 program.addCommand(monitorCommand);   // 实时监控 TUI (Phase 7)
 program.addCommand(ecsCommand);       // ECS 环境管理 (Phase 8)
+program.addCommand(oauthCommand);     // OAuth 客户端管理 (Phase 9)
 
 // 环境管理命令组
 const envCommand = new Command('env')
