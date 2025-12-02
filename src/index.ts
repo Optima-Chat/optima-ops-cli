@@ -33,8 +33,8 @@ const program = new Command();
 
 program
   .name('optima-ops')
-  .description('System operations and monitoring CLI for Optima')
-  .version('1.0.0')
+  .description('Optima 运维 CLI - 多环境管理、监控、部署工具\n\n支持环境: ec2-prod, ecs-stage, ecs-prod, bi-data')
+  .version('2.0.0')
   .enablePositionalOptions()
   .passThroughOptions();
 
@@ -152,10 +152,13 @@ program
 
 // 默认行为：无参数时启动监控界面
 const args = process.argv.slice(2);
-const hasCommand = args.length > 0 && !args[0]?.startsWith('--');
+const isHelpOrVersion = args.some(arg =>
+  arg === '--help' || arg === '-h' || arg === '--version' || arg === '-V'
+);
+const hasCommand = args.length > 0 && !args[0]?.startsWith('-');
 
-if (!hasCommand) {
-  // 无命令参数，启动监控界面
+if (!hasCommand && !isHelpOrVersion) {
+  // 无命令参数且不是帮助/版本请求，启动监控界面
   process.argv = ['node', 'optima-ops', 'monitor', 'dashboard-blessed'];
 }
 

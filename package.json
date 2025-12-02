@@ -1,6 +1,6 @@
 {
   "name": "@optima-chat/ops-cli",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "System operations and monitoring CLI for Optima",
   "type": "module",
   "bin": {
