@@ -1,18 +1,42 @@
 import { Command } from 'commander';
 import { spawn } from 'child_process';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
 import chalk from 'chalk';
 import { handleError } from '../../utils/error.js';
 import { isJsonOutput, outputSuccess } from '../../utils/output.js';
+import { getWorkspaceRoot } from '../../utils/workspace.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * 获取 infisical-envs 目录路径
+ *
+ * 优先级:
+ * 1. 环境变量 INFISICAL_ENVS_DIR
+ * 2. workspace/private/notes-private/infisical-envs
+ */
+function getInfisicalEnvsDir(): string {
+  // 1. 环境变量优先
+  if (process.env.INFISICAL_ENVS_DIR) {
+    return process.env.INFISICAL_ENVS_DIR;
+  }
 
-// infisical-envs 目录路径
-const INFISICAL_ENVS_DIR = path.resolve(__dirname, '../../../infisical-envs');
-const SYNC_SCRIPT = path.join(INFISICAL_ENVS_DIR, 'scripts/sync_to_infisical.py');
+  // 2. workspace 中的 notes-private
+  const workspaceRoot = getWorkspaceRoot();
+  if (workspaceRoot) {
+    const notesPrivatePath = path.join(workspaceRoot, 'private/notes-private/infisical-envs');
+    if (fs.existsSync(notesPrivatePath)) {
+      return notesPrivatePath;
+    }
+  }
+
+  throw new Error(
+    'infisical-envs 目录未找到。请设置环境变量 INFISICAL_ENVS_DIR 或确保 workspace/private/notes-private/infisical-envs 存在'
+  );
+}
+
+function getSyncScript(): string {
+  return path.join(getInfisicalEnvsDir(), 'scripts/sync_to_infisical.py');
+}
 
 // ============== sync ==============
 
@@ -25,13 +49,16 @@ const syncCommand = new Command('sync')
   .option('--all', '同步所有配置（完整同步）')
   .action(async (options) => {
     try {
+      const infisicalEnvsDir = getInfisicalEnvsDir();
+      const syncScript = getSyncScript();
+
       // 检查 Python 脚本是否存在
-      if (!fs.existsSync(SYNC_SCRIPT)) {
-        throw new Error(`同步脚本不存在: ${SYNC_SCRIPT}`);
+      if (!fs.existsSync(syncScript)) {
+        throw new Error(`同步脚本不存在: ${syncScript}`);
       }
 
       // 构建命令参数
-      const args: string[] = [SYNC_SCRIPT];
+      const args: string[] = [syncScript];
 
       if (options.dryRun) {
         args.push('--dry-run');
@@ -65,7 +92,7 @@ const syncCommand = new Command('sync')
 
       // 执行 Python 脚本
       const proc = spawn('python3', args, {
-        cwd: INFISICAL_ENVS_DIR,
+        cwd: infisicalEnvsDir,
         stdio: 'inherit',
       });
 
@@ -91,7 +118,8 @@ const listServicesCommand = new Command('list-services')
   .option('--json', 'JSON 输出')
   .action(async () => {
     try {
-      const servicesDir = path.join(INFISICAL_ENVS_DIR, 'v2/services');
+      const infisicalEnvsDir = getInfisicalEnvsDir();
+      const servicesDir = path.join(infisicalEnvsDir, 'v2/services');
 
       if (!fs.existsSync(servicesDir)) {
         throw new Error(`服务目录不存在: ${servicesDir}`);
@@ -173,7 +201,8 @@ const listSharedCommand = new Command('list-shared')
   .option('--json', 'JSON 输出')
   .action(async () => {
     try {
-      const sharedDir = path.join(INFISICAL_ENVS_DIR, 'v2/shared-secrets');
+      const infisicalEnvsDir = getInfisicalEnvsDir();
+      const sharedDir = path.join(infisicalEnvsDir, 'v2/shared-secrets');
 
       if (!fs.existsSync(sharedDir)) {
         throw new Error(`共享密钥目录不存在: ${sharedDir}`);
@@ -253,7 +282,20 @@ const statusCommand = new Command('status')
   .description('检查 Infisical 同步状态')
   .action(async () => {
     try {
-      const configFile = path.join(INFISICAL_ENVS_DIR, 'config.local.yaml');
+      let infisicalEnvsDir: string;
+      try {
+        infisicalEnvsDir = getInfisicalEnvsDir();
+      } catch {
+        console.log(chalk.bold('\nInfisical 同步状态\n'));
+        console.log(chalk.gray('─'.repeat(50)));
+        console.log(chalk.red('✗') + ' infisical-envs 目录未找到');
+        console.log(chalk.gray('  请设置环境变量 INFISICAL_ENVS_DIR'));
+        console.log(chalk.gray('  或确保 workspace/private/notes-private/infisical-envs 存在'));
+        console.log(chalk.gray('─'.repeat(50)));
+        return;
+      }
+
+      const configFile = path.join(infisicalEnvsDir, 'config.local.yaml');
 
       console.log(chalk.bold('\nInfisical 同步状态\n'));
       console.log(chalk.gray('─'.repeat(50)));
@@ -269,7 +311,7 @@ const statusCommand = new Command('status')
       }
 
       // 检查 v2 目录
-      const v2Dir = path.join(INFISICAL_ENVS_DIR, 'v2');
+      const v2Dir = path.join(infisicalEnvsDir, 'v2');
       if (fs.existsSync(v2Dir)) {
         console.log(chalk.green('✓') + ' v2 目录存在');
 
@@ -297,7 +339,8 @@ const statusCommand = new Command('status')
       }
 
       // 检查 Python 脚本
-      if (fs.existsSync(SYNC_SCRIPT)) {
+      const syncScript = getSyncScript();
+      if (fs.existsSync(syncScript)) {
         console.log(chalk.green('✓') + ' 同步脚本可用');
       } else {
         console.log(chalk.red('✗') + ' 同步脚本缺失');

@@ -44,10 +44,3 @@ lerna-debug.log*
 tmp/
 temp/
 
-# Infisical local config (credentials)
-infisical-envs/config.local.yaml
-infisical-envs/expanded/
-
-# Infisical shared secrets (contains actual secret values)
-# These must be manually configured, never committed to git
-infisical-envs/v2/shared-secrets/
