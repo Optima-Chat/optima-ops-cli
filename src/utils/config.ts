@@ -11,7 +11,7 @@ const servicesConfigPath = join(projectRoot, 'services-config.json');
 // ============== 类型定义 ==============
 
 // 旧版环境类型（向后兼容）
-export type Environment = 'production' | 'stage' | 'shared' | 'development';
+export type Environment = 'production' | 'stage' | 'shared' | 'development' | 'bi-data';
 
 // 新版环境类型（多环境架构）
 export type TargetEnvironment = 'ec2-prod' | 'ecs-stage' | 'ecs-prod' | 'bi-data';
@@ -30,6 +30,7 @@ interface ConfigSchema {
     stage: EC2Config;
     shared: EC2Config;
     development: EC2Config;
+    'bi-data': EC2Config;
   };
   aws: {
     region: string;
@@ -102,6 +103,11 @@ const config = new Conf<ConfigSchema>({
       },
       development: {
         host: 'ec2-dev.optima.shop',
+        user: 'ec2-user',
+        keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
+      },
+      'bi-data': {
+        host: 'bi-data.optima.onl',
         user: 'ec2-user',
         keyPath: join(homedir(), '.ssh', 'optima-ec2-key'),
       },

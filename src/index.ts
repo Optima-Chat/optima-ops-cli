@@ -17,6 +17,7 @@ import { monitorCommand } from './commands/monitor/index.js';
 import { ecsCommand } from './commands/ecs/index.js';
 import { oauthCommand } from './commands/oauth/index.js';
 import { infisicalCommand } from './commands/infisical/index.js';
+import { biCommand } from './commands/bi/index.js';
 import {
   getCurrentEnvironment,
   getCurrentEnvConfig,
@@ -49,6 +50,7 @@ program.addCommand(monitorCommand);   // 实时监控 TUI (Phase 7)
 program.addCommand(ecsCommand);       // ECS 环境管理 (Phase 8)
 program.addCommand(oauthCommand);     // OAuth 客户端管理 (Phase 9)
 program.addCommand(infisicalCommand); // Infisical 密钥同步 (Phase 10)
+program.addCommand(biCommand);        // BI 数据服务管理 (Phase 11)
 
 // 环境管理命令组
 const envCommand = new Command('env')
