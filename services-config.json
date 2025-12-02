@@ -23,6 +23,7 @@
     "bi-data": {
       "type": "ec2",
       "host": "bi-data.optima.onl",
+      "domain": "bi-data.optima.onl",
       "description": "BI 数据机器 (ClickHouse + Kafka)",
       "services": ["clickhouse", "kafka", "zookeeper", "debezium"]
     }
