@@ -10,7 +10,12 @@ const servicesConfigPath = join(projectRoot, 'services-config.json');
 
 // ============== 类型定义 ==============
 
+// 旧版环境类型（向后兼容）
 export type Environment = 'production' | 'stage' | 'shared' | 'development';
+
+// 新版环境类型（多环境架构）
+export type TargetEnvironment = 'ec2-prod' | 'ecs-stage' | 'ecs-prod' | 'bi-data';
+export type EnvironmentType = 'ec2' | 'ecs';
 
 interface EC2Config {
   host: string;
@@ -277,4 +282,215 @@ export function getServiceNames(type?: 'core' | 'mcp' | 'all'): string[] {
   } else {
     return getAllServices().map(s => s.name);
   }
+}
+
+// ============== 新版多环境配置 ==============
+
+export interface EnvironmentConfig {
+  type: EnvironmentType;
+  host?: string;
+  cluster?: string;
+  domain: string;
+  dockerNetwork?: string;
+  description: string;
+  services?: string[];
+}
+
+export interface ServiceEnvironmentConfig {
+  container?: string;
+  service?: string;
+  healthEndpoint: string;
+  port?: number;
+}
+
+export interface ServiceConfigV2 {
+  name: string;
+  repo: string;
+  type: 'core' | 'mcp' | 'bi';
+  hasDatabase: boolean;
+  hasRedis: boolean;
+  environments: {
+    [key in TargetEnvironment]?: ServiceEnvironmentConfig;
+  };
+}
+
+interface ServicesConfigFileV2 {
+  environments: {
+    [key in TargetEnvironment]: EnvironmentConfig;
+  };
+  services: {
+    core: ServiceConfigV2[];
+    mcp: ServiceConfigV2[];
+    bi: ServiceConfigV2[];
+  };
+}
+
+let cachedServicesConfigV2: ServicesConfigFileV2 | null = null;
+
+/**
+ * 加载新版服务配置文件
+ */
+function loadServicesConfigV2(): ServicesConfigFileV2 {
+  if (cachedServicesConfigV2) {
+    return cachedServicesConfigV2;
+  }
+
+  if (!existsSync(servicesConfigPath)) {
+    throw new Error(`服务配置文件不存在: ${servicesConfigPath}`);
+  }
+
+  try {
+    const content = readFileSync(servicesConfigPath, 'utf-8');
+    cachedServicesConfigV2 = JSON.parse(content);
+    return cachedServicesConfigV2!;
+  } catch (error: any) {
+    throw new Error(`读取服务配置文件失败: ${error.message}`);
+  }
+}
+
+/**
+ * 获取所有环境配置
+ */
+export function getEnvironments(): { [key in TargetEnvironment]: EnvironmentConfig } {
+  const config = loadServicesConfigV2();
+  return config.environments;
+}
+
+/**
+ * 获取特定环境配置
+ */
+export function getEnvironmentConfig(env: TargetEnvironment): EnvironmentConfig {
+  const envs = getEnvironments();
+  if (!envs[env]) {
+    throw new Error(`未知环境: ${env}。可用环境: ${Object.keys(envs).join(', ')}`);
+  }
+  return envs[env];
+}
+
+/**
+ * 获取当前目标环境（从环境变量或配置）
+ */
+export function getCurrentTargetEnvironment(): TargetEnvironment | null {
+  const env = process.env.OPTIMA_TARGET_ENV as TargetEnvironment;
+  if (env && isValidTargetEnvironment(env)) {
+    return env;
+  }
+  return config.get('targetEnvironment' as any) || null;
+}
+
+/**
+ * 设置当前目标环境
+ */
+export function setCurrentTargetEnvironment(env: TargetEnvironment): void {
+  config.set('targetEnvironment' as any, env);
+}
+
+/**
+ * 验证环境值是否有效
+ */
+export function isValidTargetEnvironment(env: string): env is TargetEnvironment {
+  return ['ec2-prod', 'ecs-stage', 'ecs-prod', 'bi-data'].includes(env);
+}
+
+/**
+ * 获取所有服务配置 V2
+ */
+export function getAllServicesV2(): ServiceConfigV2[] {
+  const config = loadServicesConfigV2();
+  return [
+    ...config.services.core,
+    ...config.services.mcp,
+    ...(config.services.bi || []),
+  ];
+}
+
+/**
+ * 获取特定类型的服务 V2
+ */
+export function getServicesByTypeV2(type: 'core' | 'mcp' | 'bi'): ServiceConfigV2[] {
+  const config = loadServicesConfigV2();
+  return config.services[type] || [];
+}
+
+/**
+ * 获取特定环境下的服务配置
+ */
+export function getServiceForEnvironment(
+  serviceName: string,
+  env: TargetEnvironment
+): { service: ServiceConfigV2; envConfig: ServiceEnvironmentConfig } | null {
+  const allServices = getAllServicesV2();
+  const service = allServices.find(s => s.name === serviceName);
+
+  if (!service) {
+    return null;
+  }
+
+  const envConfig = service.environments[env];
+  if (!envConfig) {
+    return null;
+  }
+
+  return { service, envConfig };
+}
+
+/**
+ * 获取环境下所有可用的服务
+ */
+export function getServicesInEnvironment(env: TargetEnvironment): ServiceConfigV2[] {
+  const allServices = getAllServicesV2();
+  return allServices.filter(s => s.environments[env] !== undefined);
+}
+
+/**
+ * 解析 --env 参数，支持旧版和新版格式
+ */
+export function resolveEnvironment(envArg?: string): TargetEnvironment {
+  // 如果提供了参数，验证并返回
+  if (envArg) {
+    if (isValidTargetEnvironment(envArg)) {
+      return envArg;
+    }
+    // 兼容旧版格式
+    const mapping: { [key: string]: TargetEnvironment } = {
+      'production': 'ec2-prod',
+      'prod': 'ec2-prod',
+      'stage': 'ecs-stage',
+      'staging': 'ecs-stage',
+    };
+    if (mapping[envArg]) {
+      return mapping[envArg];
+    }
+    throw new Error(`未知环境: ${envArg}。可用环境: ec2-prod, ecs-stage, ecs-prod, bi-data`);
+  }
+
+  // 从环境变量或配置读取
+  const currentEnv = getCurrentTargetEnvironment();
+  if (currentEnv) {
+    return currentEnv;
+  }
+
+  throw new Error('请指定环境: --env <ec2-prod|ecs-stage|ecs-prod|bi-data>');
+}
+
+/**
+ * 获取 ECS 集群名称
+ */
+export function getECSCluster(env: TargetEnvironment): string {
+  const envConfig = getEnvironmentConfig(env);
+  if (envConfig.type !== 'ecs') {
+    throw new Error(`环境 ${env} 不是 ECS 类型`);
+  }
+  return envConfig.cluster!;
+}
+
+/**
+ * 获取 EC2 主机地址
+ */
+export function getEC2Host(env: TargetEnvironment): string {
+  const envConfig = getEnvironmentConfig(env);
+  if (envConfig.type !== 'ec2') {
+    throw new Error(`环境 ${env} 不是 EC2 类型`);
+  }
+  return envConfig.host!;
 }

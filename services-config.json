@@ -1,104 +1,238 @@
 {
   "$schema": "./services-config.schema.json",
+  "environments": {
+    "ec2-prod": {
+      "type": "ec2",
+      "host": "ec2-prod.optima.shop",
+      "domain": "optima.shop",
+      "dockerNetwork": "optima-prod",
+      "description": "EC2 Docker Compose 生产环境"
+    },
+    "ecs-stage": {
+      "type": "ecs",
+      "cluster": "optima-stage-cluster",
+      "domain": "stage.optima.onl",
+      "description": "ECS Stage 环境"
+    },
+    "ecs-prod": {
+      "type": "ecs",
+      "cluster": "optima-prod-cluster",
+      "domain": "optima.onl",
+      "description": "ECS Prod 环境"
+    },
+    "bi-data": {
+      "type": "ec2",
+      "host": "bi-data.optima.onl",
+      "description": "BI 数据机器 (ClickHouse + Kafka)",
+      "services": ["clickhouse", "kafka", "zookeeper", "debezium"]
+    }
+  },
   "services": {
     "core": [
       {
         "name": "user-auth",
         "repo": "Optima-Chat/user-auth",
-        "container": "optima-user-auth-prod",
-        "healthEndpoint": "https://auth.optima.shop/health",
         "type": "core",
         "hasDatabase": true,
-        "hasRedis": true
+        "hasRedis": true,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-user-auth-prod",
+            "healthEndpoint": "https://auth.optima.shop/health"
+          },
+          "ecs-stage": {
+            "service": "optima-stage-user-auth",
+            "healthEndpoint": "https://auth.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-user-auth",
+            "healthEndpoint": "https://auth.optima.onl/health"
+          }
+        }
       },
       {
         "name": "mcp-host",
         "repo": "Optima-Chat/mcp-host",
-        "container": "optima-mcp-host-prod",
-        "healthEndpoint": "https://mcp.optima.shop/health",
         "type": "core",
         "hasDatabase": true,
-        "hasRedis": false
+        "hasRedis": false,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-mcp-host-prod",
+            "healthEndpoint": "https://mcp.optima.shop/health"
+          },
+          "ecs-stage": {
+            "service": "optima-stage-mcp-host",
+            "healthEndpoint": "https://host.mcp.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-mcp-host",
+            "healthEndpoint": "https://host.mcp.optima.onl/health"
+          }
+        }
       },
       {
         "name": "commerce-backend",
         "repo": "Optima-Chat/commerce-backend",
-        "container": "optima-commerce-backend-prod",
-        "healthEndpoint": "https://api.optima.shop/health",
         "type": "core",
         "hasDatabase": true,
-        "hasRedis": true
+        "hasRedis": true,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-commerce-backend-prod",
+            "healthEndpoint": "https://api.optima.shop/health"
+          },
+          "ecs-stage": {
+            "service": "optima-stage-commerce-backend",
+            "healthEndpoint": "https://api.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-commerce-backend",
+            "healthEndpoint": "https://api.optima.onl/health"
+          }
+        }
       },
       {
         "name": "agentic-chat",
         "repo": "Optima-Chat/agentic-chat",
-        "container": "optima-agentic-chat-prod",
-        "healthEndpoint": "https://ai.optima.shop",
         "type": "core",
         "hasDatabase": true,
-        "hasRedis": false
+        "hasRedis": false,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-agentic-chat-prod",
+            "healthEndpoint": "https://ai.optima.shop"
+          },
+          "ecs-stage": {
+            "service": "optima-stage-agentic-chat",
+            "healthEndpoint": "https://ai.stage.optima.onl"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-agentic-chat",
+            "healthEndpoint": "https://ai.optima.onl"
+          }
+        }
       }
     ],
     "mcp": [
       {
         "name": "comfy-mcp",
         "repo": "Optima-Chat/comfy-mcp",
-        "container": "optima-comfy-mcp-prod",
-        "healthEndpoint": "https://mcp-comfy.optima.shop/api/v1/health",
-        "port": 8261,
         "type": "mcp",
         "hasDatabase": false,
-        "hasRedis": false
-      },
-      {
-        "name": "fetch-mcp",
-        "repo": "Optima-Chat/fetch-mcp",
-        "container": "optima-fetch-mcp-prod",
-        "healthEndpoint": "https://mcp-fetch.optima.shop/health",
-        "port": 8250,
-        "type": "mcp",
-        "hasDatabase": false,
-        "hasRedis": false
-      },
-      {
-        "name": "perplexity-mcp",
-        "repo": "Optima-Chat/perplexity-mcp",
-        "container": "optima-perplexity-mcp-prod",
-        "healthEndpoint": "https://mcp-research.optima.shop/health",
-        "port": 8220,
-        "type": "mcp",
-        "hasDatabase": false,
-        "hasRedis": false
-      },
-      {
-        "name": "shopify-mcp",
-        "repo": "Optima-Chat/shopify-mcp",
-        "container": "optima-shopify-mcp-prod",
-        "healthEndpoint": "https://mcp-shopify.optima.shop/health",
-        "port": 8210,
-        "type": "mcp",
-        "hasDatabase": false,
-        "hasRedis": false
+        "hasRedis": false,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-comfy-mcp-prod",
+            "healthEndpoint": "https://mcp-comfy.optima.shop/api/v1/health",
+            "port": 8261
+          },
+          "ecs-stage": {
+            "service": "optima-stage-comfy-mcp",
+            "healthEndpoint": "https://comfy.mcp.stage.optima.onl/api/v1/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-comfy-mcp",
+            "healthEndpoint": "https://comfy.mcp.optima.onl/api/v1/health"
+          }
+        }
       },
       {
         "name": "commerce-mcp",
         "repo": "Optima-Chat/commerce-mcp",
-        "container": "optima-commerce-mcp-prod",
-        "healthEndpoint": "https://mcp-commerce.optima.shop/health",
-        "port": 8270,
         "type": "mcp",
         "hasDatabase": false,
-        "hasRedis": false
+        "hasRedis": false,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-commerce-mcp-prod",
+            "healthEndpoint": "https://mcp-commerce.optima.shop/health",
+            "port": 8270
+          },
+          "ecs-stage": {
+            "service": "optima-stage-commerce-mcp",
+            "healthEndpoint": "https://commerce.mcp.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-commerce-mcp",
+            "healthEndpoint": "https://commerce.mcp.optima.onl/health"
+          }
+        }
       },
       {
-        "name": "google-ads-mcp",
+        "name": "ads-mcp",
         "repo": "Optima-Chat/google-ads-mcp",
-        "container": "optima-google-ads-mcp-prod",
-        "healthEndpoint": "https://mcp-ads.optima.shop/health",
-        "port": 8240,
         "type": "mcp",
         "hasDatabase": true,
-        "hasRedis": false
+        "hasRedis": false,
+        "environments": {
+          "ec2-prod": {
+            "container": "optima-google-ads-mcp-prod",
+            "healthEndpoint": "https://mcp-ads.optima.shop/health",
+            "port": 8240
+          },
+          "ecs-stage": {
+            "service": "optima-stage-ads-mcp",
+            "healthEndpoint": "https://ads.mcp.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-ads-mcp",
+            "healthEndpoint": "https://ads.mcp.optima.onl/health"
+          }
+        }
+      }
+    ],
+    "bi": [
+      {
+        "name": "bi-backend",
+        "repo": "Optima-Chat/optima-bi",
+        "type": "bi",
+        "hasDatabase": true,
+        "hasRedis": false,
+        "environments": {
+          "ecs-stage": {
+            "service": "optima-stage-bi-backend",
+            "healthEndpoint": "https://bi-api.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-bi-backend",
+            "healthEndpoint": "https://bi-api.optima.onl/health"
+          }
+        }
+      },
+      {
+        "name": "bi-dashboard",
+        "repo": "Optima-Chat/optima-bi",
+        "type": "bi",
+        "hasDatabase": false,
+        "hasRedis": false,
+        "environments": {
+          "ecs-stage": {
+            "service": "optima-stage-bi-dashboard",
+            "healthEndpoint": "https://bi.stage.optima.onl"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-bi-dashboard",
+            "healthEndpoint": "https://bi.optima.onl"
+          }
+        }
+      },
+      {
+        "name": "bi-mcp",
+        "repo": "Optima-Chat/optima-bi",
+        "type": "bi",
+        "hasDatabase": false,
+        "hasRedis": false,
+        "environments": {
+          "ecs-stage": {
+            "service": "optima-stage-bi-mcp",
+            "healthEndpoint": "https://bi.mcp.stage.optima.onl/health"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-bi-mcp",
+            "healthEndpoint": "https://bi.mcp.optima.onl/health"
+          }
+        }
       }
     ]
   }
