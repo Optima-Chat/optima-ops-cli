@@ -6,7 +6,6 @@ import type {
   ServiceHealth,
   EnvironmentHealth,
   EC2Stats,
-  DockerStats,
   DiskStats,
   ContainerStats,
 } from '../../types/monitor.js';
@@ -16,8 +15,7 @@ import type {
  *
  * 从多个数据源获取监控数据：
  * - 服务健康：HTTP 健康检查端点
- * - EC2 资源：SSH 命令
- * - Docker 容器：SSH 命令
+ * - EC2 资源：SSH 命令（TODO: 迁移到 CloudWatch）
  */
 /**
  * SSH 连接池项
@@ -357,92 +355,6 @@ export class MonitorDataService {
   }
 
   /**
-   * 获取 Docker 容器资源使用
-   * 注意：总是获取所有环境（production + stage + shared）
-   */
-  async fetchDockerStats(): Promise<DockerStats[]> {
-    const [prodResult, stageResult, sharedResult] = await Promise.all([
-      this.fetchDockerStatsForHost('ec2-prod.optima.shop', 'production'),
-      this.fetchDockerStatsForHost('ec2-stage.optima.shop', 'stage'),
-      this.fetchDockerStatsForHost('13.251.46.219', 'shared'),
-    ]);
-
-    return [
-      { environment: 'production', ...prodResult },
-      { environment: 'stage', ...stageResult },
-      { environment: 'shared', ...sharedResult },
-    ];
-  }
-
-  /**
-   * 获取单个主机的 Docker 容器资源
-   * 返回值包含 stats 和可能的 error/offline 标记
-   */
-  private async fetchDockerStatsForHost(
-    host: string,
-    environment: 'production' | 'stage' | 'shared'
-  ): Promise<{ stats: ContainerStats[]; error?: string; offline?: boolean }> {
-    try {
-    // 获取资源使用统计
-    const result = await this.executeSSHCommand(
-      host,
-      'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"'
-    );
-
-    const lines = result.trim().split('\n');
-    const containerNames = lines.filter((line) => line.trim()).map((line) => line.split('|')[0]);
-
-    // 并行获取每个容器的详细信息
-    const statsPromises = lines
-      .filter((line) => line.trim())
-      .map(async (line) => {
-        const [container, cpuStr, memStr, netStr] = line.split('|');
-
-        // 解析 CPU
-        const cpuPercent = parseFloat(cpuStr?.replace('%', '') || '0');
-
-        // 解析内存 (e.g., "123.4MiB / 1.5GiB")
-        const memParts = memStr?.split('/') || [];
-        const memoryUsed = this.parseMemory(memParts[0]?.trim() || '0');
-        const memoryTotal = this.parseMemory(memParts[1]?.trim() || '0');
-
-        // 解析网络 (e.g., "1.2kB / 3.4kB")
-        const netParts = netStr?.split('/') || [];
-        const networkRx = this.parseBytes(netParts[0]?.trim() || '0');
-        const networkTx = this.parseBytes(netParts[1]?.trim() || '0');
-
-        // 获取容器详细信息
-        const detailInfo = await this.fetchContainerDetails(host, container || 'unknown');
-
-        return {
-          container: container || 'unknown',
-          cpuPercent,
-          memoryUsed,
-          memoryTotal,
-          networkRx,
-          networkTx,
-          ...detailInfo, // 合并详细信息
-        };
-      });
-
-    const stats = await Promise.all(statsPromises);
-
-      return { stats };
-    } catch (error: any) {
-      // 不要用 console.error，会干扰 TUI 显示
-      // dashboardLogger.debug(`获取 ${environment} Docker 数据失败:`, error.message);
-
-      // 返回错误状态（这是正常流程的一部分）
-      const isTimeout = error.message?.includes('Timed out') || error.message?.includes('timeout');
-      return {
-        stats: [],
-        error: error.message,
-        offline: isTimeout,
-      };
-    }
-  }
-
-  /**
    * 获取容器详细信息（状态、启动时间、镜像、构建信息等）
    */
   private async fetchContainerDetails(
@@ -671,52 +583,6 @@ export class MonitorDataService {
       }
       throw error;
     }
-  }
-
-  /**
-   * 解析内存字符串（支持 B, KiB, MiB, GiB）
-   */
-  private parseMemory(str: string): number {
-    const match = str.match(/^([\d.]+)([KMGT]i?B?)$/);
-    if (!match) return 0;
-
-    const value = parseFloat(match[1]);
-    const unit = match[2];
-
-    const multipliers: Record<string, number> = {
-      B: 1,
-      KiB: 1024,
-      MiB: 1024 * 1024,
-      GiB: 1024 * 1024 * 1024,
-      TiB: 1024 * 1024 * 1024 * 1024,
-      KB: 1000,
-      MB: 1000 * 1000,
-      GB: 1000 * 1000 * 1000,
-      TB: 1000 * 1000 * 1000 * 1000,
-    };
-
-    return value * (multipliers[unit] || 1);
-  }
-
-  /**
-   * 解析字节字符串（支持 B, kB, MB, GB）
-   */
-  private parseBytes(str: string): number {
-    const match = str.match(/^([\d.]+)([kMGT]?B?)$/);
-    if (!match) return 0;
-
-    const value = parseFloat(match[1]);
-    const unit = match[2];
-
-    const multipliers: Record<string, number> = {
-      B: 1,
-      kB: 1000,
-      MB: 1000 * 1000,
-      GB: 1000 * 1000 * 1000,
-      TB: 1000 * 1000 * 1000 * 1000,
-    };
-
-    return value * (multipliers[unit] || 1);
   }
 
 }

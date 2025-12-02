@@ -1,19 +1,17 @@
 import { BasePanel } from './BasePanel.js';
-import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
-import type { EC2Stats } from '../../../types/monitor.js';
 
 /**
- * EC2 Resources Panel (Panel 2)
+ * EC2 Resources Panel (Panel 3)
  *
- * 显示 EC2 实例资源使用详情：
+ * 显示 EC2 实例资源使用详情（使用 CloudWatch 免费指标）：
  * - 实例信息（ID、类型、运行时间）
- * - 内存使用（已用/总量/百分比）
- * - 磁盘使用（所有分区详情）
- * - 资源告警（超过阈值高亮显示）
+ * - CPU 使用率（CloudWatch 免费指标）
+ * - 内存信息（从实例类型推断总量，无实时使用数据）
+ *
+ * 注意：内存使用率和磁盘使用需要安装 CloudWatch Agent（付费），
+ * 这里只使用免费指标。
  */
 export class EC2Panel extends BasePanel {
-  private dataService: MonitorDataService;
-
   constructor(
     screen: any,
     config: any,
@@ -21,7 +19,6 @@ export class EC2Panel extends BasePanel {
     environment: string
   ) {
     super(screen, config, cache, environment);
-    this.dataService = new MonitorDataService(environment);
   }
 
   /**
@@ -43,6 +40,9 @@ export class EC2Panel extends BasePanel {
 
     let content = '';
 
+    // 标题和说明
+    content += ' {cyan-fg}{bold}EC2 实例状态{/bold}{/cyan-fg} {gray-fg}(CloudWatch 免费指标){/gray-fg}\n\n';
+
     for (const stat of ec2Stats) {
       const envLabels: Record<string, string> = {
         production: 'Production',
@@ -52,17 +52,12 @@ export class EC2Panel extends BasePanel {
       const envLabel = envLabels[stat.environment] || stat.environment;
 
       // 环境标题
-      content += ` {cyan-fg}{bold}${envLabel}{/bold}{/cyan-fg}`;
+      content += ` {bold}${envLabel}{/bold}`;
 
       // 检查离线状态
       if (stat.offline) {
         content += ' {red-fg}[离线]{/red-fg}\n';
-        content += `   {gray-fg}${stat.error || 'SSH 连接超时，实例可能已关闭'}{/gray-fg}\n\n`;
-
-        // 分隔线（不是最后一个环境时）
-        if (ec2Stats.indexOf(stat) < ec2Stats.length - 1) {
-          content += '   ' + '─'.repeat(70) + '\n\n';
-        }
+        content += `   {gray-fg}${stat.error || '实例未找到或已停止'}{/gray-fg}\n\n`;
         continue;
       }
 
@@ -70,11 +65,6 @@ export class EC2Panel extends BasePanel {
       if (stat.error) {
         content += ' {yellow-fg}[错误]{/yellow-fg}\n';
         content += `   {gray-fg}${stat.error}{/gray-fg}\n\n`;
-
-        // 分隔线（不是最后一个环境时）
-        if (ec2Stats.indexOf(stat) < ec2Stats.length - 1) {
-          content += '   ' + '─'.repeat(70) + '\n\n';
-        }
         continue;
       }
 
@@ -86,12 +76,12 @@ export class EC2Panel extends BasePanel {
       content += `   {bold}运行时间{/bold}: ${stat.uptime}\n`;
       content += '\n';
 
-      // CPU 使用
+      // CPU 使用率（CloudWatch 免费指标）
       if (stat.cpuUsage !== undefined) {
         const cpuPercent = stat.cpuUsage.toFixed(1);
         const cpuColor = stat.cpuUsage > 80 ? 'red' : stat.cpuUsage > 50 ? 'yellow' : 'green';
 
-        content += `   {bold}CPU 使用{/bold}\n`;
+        content += `   {bold}CPU 使用率{/bold}\n`;
         content += `     {${cpuColor}-fg}${cpuPercent}%{/${cpuColor}-fg}\n`;
 
         // 进度条
@@ -100,78 +90,32 @@ export class EC2Panel extends BasePanel {
         const cpuBar = '█'.repeat(cpuFilled) + '░'.repeat(cpuBarWidth - cpuFilled);
         content += `     {${cpuColor}-fg}${cpuBar}{/${cpuColor}-fg}\n`;
         content += '\n';
-      }
 
-      // 内存使用
-      const memPercent =
-        stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(1) : '0';
-      const memColor =
-        parseFloat(memPercent) > 80 ? 'red' : parseFloat(memPercent) > 50 ? 'yellow' : 'green';
-
-      content += `   {bold}内存使用{/bold}\n`;
-      content += `     {${memColor}-fg}${stat.memoryUsed} MB / ${stat.memoryTotal} MB (${memPercent}%){/${memColor}-fg}\n`;
-
-      // 进度条
-      const memBarWidth = 50;
-      const memFilled = Math.round((parseFloat(memPercent) / 100) * memBarWidth);
-      const memBar = '█'.repeat(memFilled) + '░'.repeat(memBarWidth - memFilled);
-      content += `     {${memColor}-fg}${memBar}{/${memColor}-fg}\n`;
-      content += '\n';
-
-      // 磁盘使用
-      content += `   {bold}磁盘使用{/bold}\n`;
-      if (stat.disks && stat.disks.length > 0) {
-        for (const disk of stat.disks) {
-          const diskColor = disk.percent > 80 ? 'red' : disk.percent > 50 ? 'yellow' : 'green';
-          const mountLabel = disk.mountPoint.padEnd(10);
-
-          content += `     ${mountLabel} {${diskColor}-fg}${disk.used} GB / ${disk.total} GB (${disk.percent}%){/${diskColor}-fg}\n`;
-
-          // 进度条
-          const diskBarWidth = 40;
-          const diskFilled = Math.round((disk.percent / 100) * diskBarWidth);
-          const diskBar = '█'.repeat(diskFilled) + '░'.repeat(diskBarWidth - diskFilled);
-          content += `                {${diskColor}-fg}${diskBar}{/${diskColor}-fg}\n`;
+        // CPU 告警
+        if (stat.cpuUsage > 80) {
+          content += `   {red-fg}⚠ CPU 使用率过高 (${cpuPercent}%){/red-fg}\n\n`;
         }
       } else {
-        // 向后兼容：显示旧格式
-        const diskPercent =
-          stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(1) : '0';
-        const diskColor =
-          parseFloat(diskPercent) > 80 ? 'red' : parseFloat(diskPercent) > 50 ? 'yellow' : 'green';
-
-        content += `     / (root)   {${diskColor}-fg}${stat.diskUsed} GB / ${stat.diskTotal} GB (${diskPercent}%){/${diskColor}-fg}\n`;
+        content += `   {bold}CPU 使用率{/bold}\n`;
+        content += `     {gray-fg}数据获取中...{/gray-fg}\n\n`;
       }
 
-      content += '\n';
-
-      // 告警信息
-      const warnings: string[] = [];
-      if (parseFloat(memPercent) > 80) {
-        warnings.push(`内存使用过高 (${memPercent}%)`);
-      }
-      if (stat.disks) {
-        const highDiskUsage = stat.disks.filter((d) => d.percent > 80);
-        if (highDiskUsage.length > 0) {
-          warnings.push(
-            `磁盘使用过高: ${highDiskUsage.map((d) => `${d.mountPoint} (${d.percent}%)`).join(', ')}`
-          );
-        }
-      }
-
-      if (warnings.length > 0) {
-        content += `   {red-fg}{bold}⚠ 告警{/bold}{/red-fg}\n`;
-        for (const warning of warnings) {
-          content += `     {red-fg}• ${warning}{/red-fg}\n`;
-        }
-        content += '\n';
+      // 内存信息（从实例类型推断）
+      if (stat.memoryTotal > 0) {
+        content += `   {bold}内存配置{/bold}\n`;
+        const memGB = (stat.memoryTotal / 1024).toFixed(1);
+        content += `     总内存: ${memGB} GB\n`;
+        content += `     {gray-fg}(需要 CloudWatch Agent 获取使用率){/gray-fg}\n\n`;
       }
 
       // 分隔线（不是最后一个环境时）
       if (ec2Stats.indexOf(stat) < ec2Stats.length - 1) {
-        content += '   ' + '─'.repeat(70) + '\n\n';
+        content += '   ' + '─'.repeat(60) + '\n\n';
       }
     }
+
+    // 底部说明
+    content += '\n {gray-fg}提示: 内存使用率和磁盘使用需要安装 CloudWatch Agent{/gray-fg}\n';
 
     this.container.setContent(content);
     this.screen.render();

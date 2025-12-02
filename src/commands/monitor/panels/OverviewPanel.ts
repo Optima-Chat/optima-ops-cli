@@ -1,7 +1,6 @@
 import blessed from 'neo-blessed';
 import { BasePanel } from './BasePanel.js';
 import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
-import { BlueGreenService } from '../../../services/monitor/BlueGreenService.js';
 import { dashboardLogger } from '../../../utils/dashboard-logger.js';
 import fs from 'fs';
 
@@ -14,7 +13,6 @@ import fs from 'fs';
  */
 export class OverviewPanel extends BasePanel {
   private dataService: MonitorDataService;
-  private blueGreenService: BlueGreenService;
   private leftBox: any;  // 左侧概览框
   private rightBox: any; // 右侧日志框
   private errorLogs: string[] = []; // 错误日志缓存
@@ -27,7 +25,6 @@ export class OverviewPanel extends BasePanel {
   ) {
     super(screen, config, cache, environment);
     this.dataService = new MonitorDataService(environment);
-    this.blueGreenService = new BlueGreenService(environment);
 
     // 隐藏 BasePanel 的默认 container
     this.container.hide();
@@ -141,8 +138,6 @@ export class OverviewPanel extends BasePanel {
   private renderLeftPanel(): void {
     const services = this.cache.getServices(this.environment);
     const ec2 = this.cache.getEC2(this.environment);
-    const docker = this.cache.getDocker(this.environment);
-    const blueGreen = this.cache.getBlueGreen(this.environment);
 
     let content = '';
 
@@ -183,7 +178,7 @@ export class OverviewPanel extends BasePanel {
         // 检查是否离线
         if (stat.offline) {
           content += `   {bold}${envLabel}{/bold} {red-fg}[离线]{/red-fg}\n`;
-          content += `     {gray-fg}${stat.error || 'SSH 连接超时'}{/gray-fg}\n`;
+          content += `     {gray-fg}${stat.error || '连接超时'}{/gray-fg}\n`;
           continue;
         }
 
@@ -203,12 +198,14 @@ export class OverviewPanel extends BasePanel {
           content += `     CPU: {${cpuColor}-fg}${cpuPercent}%{/${cpuColor}-fg}\n`;
         }
 
-        // 内存使用率
-        const memPercent = stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
-        const memColor = parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
-        content += `     内存: {${memColor}-fg}${memPercent}%{/${memColor}-fg} (${stat.memoryUsed}MB / ${stat.memoryTotal}MB)\n`;
+        // 内存使用率（如果有数据）
+        if (stat.memoryTotal > 0) {
+          const memPercent = ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0);
+          const memColor = parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
+          content += `     内存: {${memColor}-fg}${memPercent}%{/${memColor}-fg} (${stat.memoryUsed}MB / ${stat.memoryTotal}MB)\n`;
+        }
 
-        // 磁盘使用（只显示最高的）
+        // 磁盘使用（只显示最高的，如果有数据）
         if (stat.disks && stat.disks.length > 0) {
           const maxDisk = stat.disks.reduce((max, disk) => (disk.percent > max.percent ? disk : max));
           const diskColor = maxDisk.percent > 80 ? 'red' : maxDisk.percent > 50 ? 'yellow' : 'green';
@@ -221,79 +218,14 @@ export class OverviewPanel extends BasePanel {
 
     content += '\n';
 
-    // === Docker 容器概览 ===
-    content += ' {cyan-fg}{bold}Docker 容器{/bold}{/cyan-fg}\n';
-    if (docker && docker.length > 0) {
-      let totalContainers = 0;
-      let highCpuCount = 0;
-      let highMemCount = 0;
-      let offlineEnvs: string[] = [];
-
-      for (const envData of docker) {
-        // 检查离线环境
-        if (envData.offline) {
-          const envLabels: Record<string, string> = {
-            production: 'Production',
-            stage: 'Stage',
-            shared: 'Shared',
-          };
-          offlineEnvs.push(envLabels[envData.environment] || envData.environment);
-          continue;
-        }
-
-        totalContainers += envData.stats.length;
-        for (const stat of envData.stats) {
-          if (stat.cpuPercent > 80) highCpuCount++;
-          if (stat.memoryTotal > 0 && (stat.memoryUsed / stat.memoryTotal) * 100 > 80) highMemCount++;
-        }
-      }
-
-      content += `   总计: ${totalContainers} 个容器\n`;
-      if (highCpuCount > 0) {
-        content += `   {red-fg}⚠ CPU 高负载: ${highCpuCount} 个容器{/red-fg}\n`;
-      }
-      if (highMemCount > 0) {
-        content += `   {red-fg}⚠ 内存高使用: ${highMemCount} 个容器{/red-fg}\n`;
-      }
-      if (offlineEnvs.length > 0) {
-        content += `   {red-fg}⚠ 离线环境: ${offlineEnvs.join(', ')}{/red-fg}\n`;
-      }
-      if (highCpuCount === 0 && highMemCount === 0 && offlineEnvs.length === 0) {
-        content += `   {green-fg}✓ 所有容器资源正常{/green-fg}\n`;
-      }
-    } else {
-      content += '   {yellow-fg}加载中...{/yellow-fg}\n';
-    }
-
-    content += '\n';
-
-    // === 蓝绿部署概览 ===
-    content += ' {cyan-fg}{bold}蓝绿部署{/bold}{/cyan-fg}\n';
-    if (blueGreen && blueGreen.length > 0) {
-      content += `   活跃服务: ${blueGreen.length}\n`;
-      for (const bg of blueGreen) {
-        const blueTraffic = bg.totalTraffic.blue;
-        const greenTraffic = bg.totalTraffic.green;
-
-        let statusText = '';
-        if (blueTraffic === 100 && greenTraffic === 0) {
-          statusText = '{blue-fg}100% Blue{/blue-fg}';
-        } else if (blueTraffic === 0 && greenTraffic === 100) {
-          statusText = '{green-fg}100% Green{/green-fg}';
-        } else {
-          statusText = `{yellow-fg}Blue ${blueTraffic}% / Green ${greenTraffic}%{/yellow-fg}`;
-        }
-
-        content += `   ${bg.service.padEnd(20)} ${statusText}\n`;
-      }
-    } else {
-      content += '   {gray-fg}无蓝绿部署服务{/gray-fg}\n';
-    }
+    // === ECS 服务概览 (TODO) ===
+    content += ' {cyan-fg}{bold}ECS 服务{/bold}{/cyan-fg}\n';
+    content += '   {gray-fg}待实现 - 使用 [2] 查看详情{/gray-fg}\n';
 
     content += '\n';
 
     // === 提示信息 ===
-    content += ' {gray-fg}提示: 按 [1-4] 查看详细信息{/gray-fg}\n';
+    content += ' {gray-fg}提示: 按 [1-3] 查看详细信息{/gray-fg}\n';
 
     this.leftBox.setContent(content);
   }

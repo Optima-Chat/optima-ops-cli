@@ -2,15 +2,9 @@ import { Command } from 'commander';
 import { handleError } from '../../utils/error.js';
 import { BlessedDashboard } from '../../ui/blessed/BlessedDashboard.js';
 import { getAllServices } from '../../utils/services-loader.js';
-import { getCoreServices } from '../../utils/services-loader.js';
-import { ECSService } from '../../services/aws/ecs-service.js';
-import { SSHClient } from '../../utils/ssh.js';
-import { getCurrentEnvConfig } from '../../utils/config.js';
 import axios from 'axios';
 import type {
   ServiceHealth,
-  BlueGreenStatus,
-  DockerStats,
   EC2Stats,
 } from '../../types/monitor.js';
 import { dashboardLogger } from '../../utils/dashboard-logger.js';
@@ -161,120 +155,6 @@ export const legacyDashboardCommand = new Command('legacy')
         return results;
       };
 
-      const fetchBlueGreen = async (): Promise<BlueGreenStatus[]> => {
-        const ecsService = new ECSService();
-        const coreServices = getCoreServices();
-        const services = coreServices.map((s) => s.name);
-        const cluster =
-          environment === 'production' ? 'optima-prod' : 'optima-stage';
-
-        const results = await Promise.all(
-          services.map(async (service) => {
-            const [blue, green] = await Promise.all([
-              ecsService.getServiceTasks(cluster, `optima-${service}-blue`),
-              ecsService.getServiceTasks(cluster, `optima-${service}-green`),
-            ]);
-
-            return {
-              service,
-              blue,
-              green,
-              traffic: { blue: 100, green: 0 },
-            };
-          }),
-        );
-
-        return results;
-      };
-
-      // 辅助函数：解析内存单位
-      const parseMemory = (str: string): number => {
-        const match = str.match(/^([\d.]+)([A-Za-z]+)$/);
-        if (!match) return 0;
-
-        const value = parseFloat(match[1] || '0');
-        const unit = match[2]?.toUpperCase();
-
-        const multipliers: Record<string, number> = {
-          B: 1,
-          KB: 1024,
-          KIB: 1024,
-          MB: 1024 * 1024,
-          MIB: 1024 * 1024,
-          GB: 1024 * 1024 * 1024,
-          GIB: 1024 * 1024 * 1024,
-        };
-
-        return value * (multipliers[unit || 'B'] || 1);
-      };
-
-      // 获取单个环境的 Docker 数据
-      const fetchDockerForEnv = async (
-        env: 'production' | 'stage' | 'shared',
-      ): Promise<import('../../types/monitor.js').ContainerStats[]> => {
-        try {
-          const hostMap = {
-            production: 'ec2-prod.optima.shop',
-            stage: 'ec2-stage.optima.shop',
-            shared: '13.251.46.219',
-          };
-          const host = hostMap[env];
-
-          const stdout = await executeSSHCommand(
-            host,
-            'docker stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}"',
-          );
-
-          const lines = stdout.trim().split('\n');
-          const parsed = lines
-            .map((line) => {
-              const [container, cpu, mem, net] = line.split('|');
-
-              if (!container) return null;
-
-              const cpuPercent = parseFloat(cpu?.replace('%', '') || '0');
-              const memParts = mem?.split(' / ') || [];
-              const memoryUsed = parseMemory(memParts[0] || '0');
-              const memoryTotal = parseMemory(memParts[1] || '0');
-              const netParts = net?.split(' / ') || [];
-              const networkRx = parseMemory(netParts[0] || '0');
-              const networkTx = parseMemory(netParts[1] || '0');
-
-              return {
-                container,
-                cpuPercent,
-                memoryUsed,
-                memoryTotal,
-                networkRx,
-                networkTx,
-              };
-            })
-            .filter(
-              (s): s is import('../../types/monitor.js').ContainerStats => s !== null,
-            );
-
-          return parsed;
-        } catch (err) {
-          dashboardLogger.error(`fetchDockerForEnv ${env} failed`, err as Error);
-          return [];
-        }
-      };
-
-      // 获取所有环境的 Docker 数据
-      const fetchDocker = async (): Promise<DockerStats[]> => {
-        const [prodStats, stageStats, sharedStats] = await Promise.all([
-          fetchDockerForEnv('production'),
-          fetchDockerForEnv('stage'),
-          fetchDockerForEnv('shared'),
-        ]);
-
-        return [
-          { environment: 'production', stats: prodStats },
-          { environment: 'stage', stats: stageStats },
-          { environment: 'shared', stats: sharedStats },
-        ];
-      };
-
       // 获取单个环境的 EC2 资源
       const fetchEC2ForEnv = async (env: 'production' | 'stage' | 'shared'): Promise<EC2Stats | null> => {
         try {
@@ -366,15 +246,8 @@ export const legacyDashboardCommand = new Command('legacy')
             return [];
           });
 
-          // Docker 资源 - 已启用
-          const docker = await fetchDocker().catch((err) => {
-            dashboardLogger.error('fetchDocker failed', err);
-            return [];
-          });
-
           dashboard.updateServices(services, false);
-          dashboard.updateBlueGreen(ec2, false);
-          dashboard.updateDocker(docker, false);
+          dashboard.updateEC2(ec2, false);
         } catch (err) {
           dashboardLogger.error('updateData failed', err as Error);
         }
@@ -382,8 +255,7 @@ export const legacyDashboardCommand = new Command('legacy')
 
       // 初始加载
       dashboard.updateServices([], true);
-      dashboard.updateBlueGreen([], true);
-      dashboard.updateDocker([], true);
+      dashboard.updateEC2([], true);
 
       // 立即获取一次数据
       await updateData();

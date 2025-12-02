@@ -2,7 +2,8 @@ import blessed from 'neo-blessed';
 import type { PanelType, PanelConfig } from '../../../types/monitor.js';
 import { DataCache } from '../../../services/monitor/DataCache.js';
 import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
-import { BlueGreenService } from '../../../services/monitor/BlueGreenService.js';
+import { ECSMonitorService } from '../../../services/monitor/ECSMonitorService.js';
+import { EC2MonitorService } from '../../../services/monitor/EC2MonitorService.js';
 import type { BasePanel } from './BasePanel.js';
 
 /**
@@ -26,7 +27,8 @@ export class PanelManager {
 
   // 统一数据刷新
   private dataService: MonitorDataService;
-  private blueGreenService: BlueGreenService;
+  private ecsService: ECSMonitorService;
+  private ec2Service: EC2MonitorService;
   private refreshTimers: Map<string, NodeJS.Timeout>;
 
   // Panel 配置
@@ -46,25 +48,18 @@ export class PanelManager {
       refreshInterval: 30000, // 30s
     },
     {
-      type: 'ec2',
+      type: 'ecs',
       key: '2',
-      label: 'EC2 资源',
-      description: 'EC2 实例资源使用',
-      refreshInterval: 300000, // 5min
-    },
-    {
-      type: 'docker',
-      key: '3',
-      label: 'Docker 容器',
-      description: 'Docker 容器资源使用',
+      label: 'ECS 服务',
+      description: 'ECS 服务状态和资源使用',
       refreshInterval: 30000, // 30s
     },
     {
-      type: 'bluegreen',
-      key: '4',
-      label: '蓝绿部署',
-      description: '蓝绿部署状态和流量分配',
-      refreshInterval: 5000, // 5s
+      type: 'ec2',
+      key: '3',
+      label: 'EC2 资源',
+      description: 'EC2 实例资源使用 (CloudWatch)',
+      refreshInterval: 60000, // 1min
     },
   ];
 
@@ -77,7 +72,8 @@ export class PanelManager {
 
     // 初始化数据服务
     this.dataService = new MonitorDataService(environment);
-    this.blueGreenService = new BlueGreenService(environment);
+    this.ecsService = new ECSMonitorService(); // 使用默认 cluster
+    this.ec2Service = new EC2MonitorService(); // 使用 CloudWatch
     this.refreshTimers = new Map();
 
     // 创建 Header 和 Footer
@@ -164,7 +160,6 @@ export class PanelManager {
       // 摘要信息（从缓存读取）
       const services = this.cache.getServices(this.environment);
       const ec2 = this.cache.getEC2(this.environment);
-      const docker = this.cache.getDocker(this.environment);
 
       let summary = '';
       if (services && services.length > 0) {
@@ -180,10 +175,7 @@ export class PanelManager {
         summary += ` | {cyan-fg}${online}/${total} EC2{/cyan-fg}`;
       }
 
-      if (docker && docker.length > 0) {
-        const totalContainers = docker.reduce((sum, d) => sum + (d.stats?.length || 0), 0);
-        summary += ` | {blue-fg}${totalContainers} 容器{/blue-fg}`;
-      }
+      // TODO: 添加 ECS 服务摘要
 
       summaryBox.setContent(summary);
       this.screen.render();
@@ -205,7 +197,7 @@ export class PanelManager {
       left: 0,
       width: '100%',
       height: 3,
-      content: ' {bold}面板{/bold}: [0-4]=跳转 [Tab/←→/hl]=切换 | {bold}滚动{/bold}: [↑↓/jk]=逐行 [PgUp/PgDn]=快速 [鼠标滚轮] | {bold}操作{/bold}: [r]=刷新 [q]=退出',
+      content: ' {bold}面板{/bold}: [0-3]=跳转 [Tab/←→/hl]=切换 | {bold}滚动{/bold}: [↑↓/jk]=逐行 [PgUp/PgDn]=快速 [鼠标滚轮] | {bold}操作{/bold}: [r]=刷新 [q]=退出',
       tags: true,
       border: {
         type: 'single',
@@ -358,7 +350,7 @@ export class PanelManager {
     const currentConfig = PanelManager.PANEL_CONFIGS.find((c) => c.type === this.currentPanel);
     if (currentConfig) {
       this.footerBox.setContent(
-        ` 当前: ${currentConfig.label} | 导航: [0-4]=切换 [Tab]=下一个 [Shift+Tab]=上一个 [r]=刷新 [q]=退出`
+        ` 当前: ${currentConfig.label} | 导航: [0-3]=切换 [Tab]=下一个 [Shift+Tab]=上一个 [r]=刷新 [q]=退出`
       );
       this.screen.render();
     }
@@ -397,6 +389,8 @@ export class PanelManager {
    * 启动统一后台数据刷新
    *
    * 所有数据在后台自动刷新，面板只负责渲染
+   *
+   * 注意: EC2 和 ECS 数据刷新将在相应面板实现后添加
    */
   private startBackgroundRefresh(): void {
     // 服务健康 - 30秒刷新一次
@@ -406,29 +400,18 @@ export class PanelManager {
       this.refreshCurrentPanelView();
     });
 
-    // EC2 资源 - 5分钟刷新一次
-    this.scheduleRefresh('ec2', 300000, async () => {
-      const ec2 = await this.dataService.fetchEC2Stats();
+    // EC2 资源 - 1分钟刷新一次 (使用 CloudWatch)
+    this.scheduleRefresh('ec2', 60000, async () => {
+      const ec2 = await this.ec2Service.fetchAllInstances();
       this.cache.setEC2(this.environment, ec2);
       this.refreshCurrentPanelView();
     });
 
-    // Docker 容器 - 30秒刷新一次
-    this.scheduleRefresh('docker', 30000, async () => {
-      const docker = await this.dataService.fetchDockerStats();
-      this.cache.setDocker(this.environment, docker);
+    // ECS 服务 - 30秒刷新一次 (使用 CloudWatch + ECS API)
+    this.scheduleRefresh('ecs', 30000, async () => {
+      const ecs = await this.ecsService.fetchAllServices();
+      this.cache.setECS(this.environment, ecs);
       this.refreshCurrentPanelView();
-    });
-
-    // 蓝绿部署 - 5秒刷新一次
-    this.scheduleRefresh('bluegreen', 5000, async () => {
-      try {
-        const blueGreen = await this.blueGreenService.getBlueGreenDeployments();
-        this.cache.setBlueGreen(this.environment, blueGreen);
-        this.refreshCurrentPanelView();
-      } catch {
-        // 蓝绿部署可能不存在，忽略错误
-      }
     });
   }
 

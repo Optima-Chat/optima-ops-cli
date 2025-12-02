@@ -1,9 +1,7 @@
 import type {
   ServiceHealth,
   EC2Stats,
-  DockerStats,
-  BlueGreenDeployment,
-  PanelType,
+  ECSServiceStats,
 } from '../../types/monitor.js';
 
 /**
@@ -16,45 +14,26 @@ interface CacheEntry<T> {
 }
 
 /**
- * 历史数据点
- */
-interface HistoryPoint<T> {
-  data: T;
-  timestamp: Date;
-}
-
-/**
  * 数据缓存管理器
  *
  * 支持分层刷新策略：
- * - High frequency (5s): Overview, Blue-Green
- * - Medium frequency (30s): Services, Docker
+ * - High frequency (5s): Overview
+ * - Medium frequency (30s): Services, ECS
  * - Low frequency (5min): EC2
- *
- * 支持历史数据存储（用于趋势分析）
  */
 export class DataCache {
   private cache: Map<string, CacheEntry<any>>;
-  private history: Map<string, HistoryPoint<any>[]>; // 历史数据
 
   // 默认 TTL（毫秒）
   private static readonly DEFAULT_TTL = {
     services: 30000, // 30s
     ec2: 300000, // 5min
-    docker: 30000, // 30s
-    bluegreen: 5000, // 5s
+    ecs: 30000, // 30s
     overview: 5000, // 5s
-  };
-
-  // 历史数据保留数量（最近 N 个数据点）
-  private static readonly HISTORY_SIZE = {
-    docker: 10, // 保留最近 10 个数据点（30s * 10 = 5分钟）
-    ec2: 6,    // 保留最近 6 个数据点（5min * 6 = 30分钟）
   };
 
   constructor() {
     this.cache = new Map();
-    this.history = new Map();
   }
 
   /**
@@ -181,10 +160,8 @@ export class DataCache {
       return DataCache.DEFAULT_TTL.services;
     } else if (key.includes('ec2')) {
       return DataCache.DEFAULT_TTL.ec2;
-    } else if (key.includes('docker')) {
-      return DataCache.DEFAULT_TTL.docker;
-    } else if (key.includes('bluegreen')) {
-      return DataCache.DEFAULT_TTL.bluegreen;
+    } else if (key.includes('ecs')) {
+      return DataCache.DEFAULT_TTL.ecs;
     } else if (key.includes('overview')) {
       return DataCache.DEFAULT_TTL.overview;
     } else {
@@ -211,56 +188,11 @@ export class DataCache {
     this.set(`ec2:${env}`, data, ttl);
   }
 
-  getDocker(env: string): DockerStats[] | null {
-    return this.get<DockerStats[]>(`docker:${env}`);
+  getECS(env: string): ECSServiceStats[] | null {
+    return this.get<ECSServiceStats[]>(`ecs:${env}`);
   }
 
-  setDocker(env: string, data: DockerStats[], ttl?: number): void {
-    this.set(`docker:${env}`, data, ttl);
-    this.addHistory(`docker:${env}`, data, DataCache.HISTORY_SIZE.docker);
-  }
-
-  getBlueGreen(env: string): BlueGreenDeployment[] | null {
-    return this.get<BlueGreenDeployment[]>(`bluegreen:${env}`);
-  }
-
-  setBlueGreen(env: string, data: BlueGreenDeployment[], ttl?: number): void {
-    this.set(`bluegreen:${env}`, data, ttl);
-  }
-
-  /**
-   * 添加历史数据点
-   */
-  private addHistory<T>(key: string, data: T, maxSize: number): void {
-    let historyList = this.history.get(key);
-    if (!historyList) {
-      historyList = [];
-      this.history.set(key, historyList);
-    }
-
-    // 添加新数据点
-    historyList.push({
-      data,
-      timestamp: new Date(),
-    });
-
-    // 保留最近 N 个数据点
-    if (historyList.length > maxSize) {
-      historyList.shift();
-    }
-  }
-
-  /**
-   * 获取历史数据
-   */
-  getHistory<T>(key: string): HistoryPoint<T>[] {
-    return this.history.get(key) || [];
-  }
-
-  /**
-   * 获取 Docker 历史数据
-   */
-  getDockerHistory(env: string): HistoryPoint<DockerStats[]>[] {
-    return this.getHistory<DockerStats[]>(`docker:${env}`);
+  setECS(env: string, data: ECSServiceStats[], ttl?: number): void {
+    this.set(`ecs:${env}`, data, ttl);
   }
 }

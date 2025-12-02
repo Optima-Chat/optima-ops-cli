@@ -4,9 +4,8 @@ import { handleError } from '../../utils/error.js';
 import { PanelManager } from './panels/PanelManager.js';
 import { OverviewPanel } from './panels/OverviewPanel.js';
 import { ServicesPanel } from './panels/ServicesPanel.js';
+import { ECSPanel } from './panels/ECSPanel.js';
 import { EC2Panel } from './panels/EC2Panel.js';
-import { DockerPanel } from './panels/DockerPanel.js';
-import { BlueGreenPanel } from './panels/BlueGreenPanel.js';
 import { dashboardLogger } from '../../utils/dashboard-logger.js';
 
 /**
@@ -72,50 +71,35 @@ export async function startDashboard(options: { env: string; interval?: string }
       );
       panelManager.registerPanel(servicesPanel);
 
-      // 注册 Panel 2: EC2 资源
-      const ec2Panel = new EC2Panel(
+      // 注册 Panel 2: ECS 服务
+      const ecsPanel = new ECSPanel(
         screen,
         {
-          type: 'ec2',
+          type: 'ecs',
           key: '2',
-          label: 'EC2 资源',
-          description: 'EC2 实例资源使用',
-          refreshInterval: 300000, // 5min
-        },
-        cache,
-        environment
-      );
-      panelManager.registerPanel(ec2Panel);
-
-      // 注册 Panel 3: Docker 容器
-      const dockerPanel = new DockerPanel(
-        screen,
-        {
-          type: 'docker',
-          key: '3',
-          label: 'Docker 容器',
-          description: 'Docker 容器资源使用',
+          label: 'ECS 服务',
+          description: 'ECS 服务状态和资源使用 (CloudWatch)',
           refreshInterval: 30000, // 30s
         },
         cache,
         environment
       );
-      panelManager.registerPanel(dockerPanel);
+      panelManager.registerPanel(ecsPanel);
 
-      // 注册 Panel 4: 蓝绿部署
-      const blueGreenPanel = new BlueGreenPanel(
+      // 注册 Panel 3: EC2 资源
+      const ec2Panel = new EC2Panel(
         screen,
         {
-          type: 'bluegreen',
-          key: '4',
-          label: '蓝绿部署',
-          description: '蓝绿部署状态和流量分配',
-          refreshInterval: 5000, // 5s
+          type: 'ec2',
+          key: '3',
+          label: 'EC2 资源',
+          description: 'EC2 实例资源使用 (CloudWatch)',
+          refreshInterval: 60000, // 1min
         },
         cache,
         environment
       );
-      panelManager.registerPanel(blueGreenPanel);
+      panelManager.registerPanel(ec2Panel);
 
       // 初始化（显示 Overview Panel）
       panelManager.init();
@@ -123,32 +107,29 @@ export async function startDashboard(options: { env: string; interval?: string }
       // 渲染屏幕
       screen.render();
 
-    dashboardLogger.info('Dashboard initialized successfully (5 panels)');
+    dashboardLogger.info('Dashboard initialized successfully (4 panels)');
   } catch (error) {
     handleError(error);
   }
 }
 
 /**
- * Multi-Panel Dashboard Command (Complete)
+ * Multi-Panel Dashboard Command
  *
- * 新一代多面板架构 Dashboard：
+ * 多面板架构 Dashboard（无 SSH 依赖）：
  * - Panel 0: 概览 (OverviewPanel)
- * - Panel 1: 服务健康 (ServicesPanel)
- * - Panel 2: EC2 资源 (EC2Panel)
- * - Panel 3: Docker 容器 (DockerPanel)
- * - Panel 4: 蓝绿部署 (BlueGreenPanel)
+ * - Panel 1: 服务健康 (ServicesPanel) - HTTP 健康检查
+ * - Panel 2: ECS 服务 (ECSPanel) - CloudWatch + ECS API
+ * - Panel 3: EC2 资源 (EC2Panel) - CloudWatch + EC2 API
  *
  * 键盘导航：
- * - 0-4: 直接切换到指定 Panel
+ * - 0-3: 直接切换到指定 Panel
  * - Tab/Shift+Tab: 循环切换 Panel
  * - r: 手动刷新当前 Panel
  * - q/Esc: 退出
- *
- * Phase 3 完整实现
  */
 export const dashboardCommand = new Command('dashboard')
-  .description('多面板监控仪表盘（5 个面板：概览、服务、EC2、Docker、蓝绿部署）')
+  .description('多面板监控仪表盘（概览、服务健康、ECS 服务、EC2 资源）')
   .option('--env <environment>', '监控环境', 'production')
   .option('--interval <seconds>', '刷新间隔（秒）', '5')
   .action(startDashboard);

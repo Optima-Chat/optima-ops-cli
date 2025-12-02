@@ -1,8 +1,5 @@
 // Monitor module types
 
-import type { ECSTaskInfo } from '../services/aws/ecs-service.js';
-import type { TrafficSplit } from '../services/aws/alb-service.js';
-
 /**
  * 单环境健康状态
  */
@@ -31,16 +28,6 @@ export interface ServiceHealth {
 }
 
 /**
- * 蓝绿部署状态
- */
-export interface BlueGreenStatus {
-  service: string;
-  blue: ECSTaskInfo;
-  green: ECSTaskInfo;
-  traffic: TrafficSplit;
-}
-
-/**
  * 单个容器资源使用
  */
 export interface ContainerStats {
@@ -64,16 +51,6 @@ export interface ContainerStats {
   buildTag?: string; // Git tag（如 v1.2.3）
   buildWorkflow?: string; // GitHub workflow 名称
   buildTime?: string; // 构建时间
-}
-
-/**
- * Docker 容器资源使用（多环境）
- */
-export interface DockerStats {
-  environment: 'production' | 'stage' | 'shared';
-  stats: ContainerStats[];
-  error?: string; // 获取失败时的错误信息
-  offline?: boolean; // 标记环境是否离线
 }
 
 /**
@@ -110,55 +87,36 @@ export interface EC2Stats {
 export interface MonitorData {
   timestamp: Date;
   services: ServiceHealth[];
-  blueGreen: BlueGreenStatus[];
-  docker: DockerStats[];
+  ec2: EC2Stats[];
 }
 
 /**
- * Target Group 信息（用于蓝绿部署）
+ * ECS 服务状态
  */
-export interface TargetGroupInfo {
-  name: string;
-  arn: string;
-  port: number;
-  healthyCount: number;
-  unhealthyCount: number;
-  drainingCount: number;
-  weight: number; // 流量权重 0-100
-}
-
-/**
- * 蓝绿部署详细信息
- */
-export interface BlueGreenDeployment {
-  service: string;
-  environment: 'production' | 'stage';
-  subdomain: string;
-  blueTargetGroup: TargetGroupInfo;
-  greenTargetGroup: TargetGroupInfo;
-  totalTraffic: {
-    blue: number;
-    green: number;
-  };
-  status: 'blue-only' | 'green-only' | 'canary' | 'split';
-  lastDeployment?: {
-    timestamp: Date;
-    version: string;
-    type: 'blue' | 'green';
-  };
+export interface ECSServiceStats {
+  serviceName: string;
+  clusterName: string;
+  runningCount: number;
+  desiredCount: number;
+  pendingCount: number;
+  cpuUtilization?: number; // CloudWatch metric
+  memoryUtilization?: number; // CloudWatch metric
+  status: 'ACTIVE' | 'DRAINING' | 'INACTIVE';
+  deploymentStatus?: string;
+  lastDeployment?: Date;
 }
 
 /**
  * Panel 类型
  */
-export type PanelType = 'overview' | 'services' | 'ec2' | 'docker' | 'bluegreen';
+export type PanelType = 'overview' | 'services' | 'ec2' | 'ecs';
 
 /**
  * Panel 配置
  */
 export interface PanelConfig {
   type: PanelType;
-  key: string; // 键盘快捷键 (0-4)
+  key: string; // 键盘快捷键 (0-3)
   label: string;
   description: string;
   refreshInterval: number; // 毫秒
@@ -173,7 +131,6 @@ export interface DashboardState {
   cachedData: {
     services?: ServiceHealth[];
     ec2?: EC2Stats[];
-    docker?: DockerStats[];
-    blueGreen?: BlueGreenDeployment[];
+    ecs?: ECSServiceStats[];
   };
 }

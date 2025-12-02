@@ -1,5 +1,5 @@
 import blessed from 'neo-blessed';
-import type { ServiceHealth, BlueGreenStatus, DockerStats, EC2Stats } from '../../types/monitor.js';
+import type { ServiceHealth, EC2Stats } from '../../types/monitor.js';
 
 export interface BlessedDashboardOptions {
   environment: string;
@@ -24,8 +24,7 @@ export class BlessedDashboard {
   private screen: blessed.Widgets.Screen;
   private headerBox: blessed.Widgets.BoxElement;
   private serviceBox: blessed.Widgets.BoxElement;
-  private blueGreenBox: blessed.Widgets.BoxElement;
-  private dockerBox: blessed.Widgets.BoxElement;
+  private ec2Box: blessed.Widgets.BoxElement;
   private keyHintsBox: blessed.Widgets.BoxElement;
   private environment: string;
   private refreshInterval: number;
@@ -49,8 +48,7 @@ export class BlessedDashboard {
     // 创建布局容器
     this.headerBox = this.createHeader();
     this.serviceBox = this.createServiceBox();
-    this.blueGreenBox = this.createBlueGreenBox();
-    this.dockerBox = this.createDockerBox();
+    this.ec2Box = this.createEC2Box();
     this.keyHintsBox = this.createKeyHints();
 
     // 绑定退出键
@@ -134,8 +132,8 @@ export class BlessedDashboard {
       parent: this.screen,
       top: 3,
       left: 0,
-      width: 50,
-      height: 20,
+      width: '50%',
+      height: '100%-6',
       label: ' 服务健康 ',
       content: ' 加载中...',
       tags: true,
@@ -165,13 +163,13 @@ export class BlessedDashboard {
     });
   }
 
-  private createBlueGreenBox(): blessed.Widgets.BoxElement {
+  private createEC2Box(): blessed.Widgets.BoxElement {
     return blessed.box({
       parent: this.screen,
-      top: 23,
-      left: 0,
-      width: 50,
-      height: '100%-26',
+      top: 3,
+      left: '50%',
+      width: '50%',
+      height: '100%-6',
       label: ' EC2 资源 ',
       content: ' 加载中...',
       tags: true,
@@ -186,42 +184,6 @@ export class BlessedDashboard {
         },
         label: {
           fg: COLORS.yellow,
-          bold: true,
-        },
-      },
-      scrollable: true,
-      alwaysScroll: true,
-      scrollbar: {
-        ch: '█',
-        style: {
-          bg: COLORS.surface,
-          fg: COLORS.blue,
-        },
-      },
-    });
-  }
-
-  private createDockerBox(): blessed.Widgets.BoxElement {
-    return blessed.box({
-      parent: this.screen,
-      top: 3,
-      left: 50,
-      width: 70,
-      height: '100%-6',
-      label: ' Docker 资源 ',
-      content: ' 加载中...',
-      tags: true,
-      border: {
-        type: 'line',
-      },
-      style: {
-        fg: COLORS.text,
-        bg: COLORS.base,
-        border: {
-          fg: COLORS.cyan,
-        },
-        label: {
-          fg: COLORS.mauve,
           bold: true,
         },
       },
@@ -327,123 +289,58 @@ export class BlessedDashboard {
     this.screen.render();
   }
 
-  public updateBlueGreen(ec2Stats: EC2Stats[] | BlueGreenStatus[], loading: boolean): void {
+  public updateEC2(ec2Stats: EC2Stats[], loading: boolean): void {
     if (loading) {
-      this.blueGreenBox.setContent(' 加载 EC2 资源...');
+      this.ec2Box.setContent(' 加载 EC2 资源...');
       this.screen.render();
       return;
     }
 
     if (ec2Stats.length === 0) {
-      this.blueGreenBox.setContent(' 无 EC2 数据');
+      this.ec2Box.setContent(' 无 EC2 数据');
       this.screen.render();
       return;
     }
-
-    // 检查是否是 EC2Stats
-    if ('environment' in ec2Stats[0]) {
-      let content = '';
-
-      (ec2Stats as EC2Stats[]).forEach((stat) => {
-        const envLabels = { production: 'Production', stage: 'Stage', shared: 'Shared' };
-        const envLabel = envLabels[stat.environment] || stat.environment;
-        content += ` {cyan-fg}${envLabel}{/cyan-fg}\n`;
-        content += ` {bold}实例类型{/bold}: ${stat.instanceType}\n`;
-        content += ` {bold}实例 ID{/bold}:  ${stat.instanceId}\n`;
-        content += ` {bold}运行时间{/bold}: ${stat.uptime}\n`;
-
-        // 内存
-        const memPercent =
-          stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
-        const memColor =
-          parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
-        content += ` {bold}内存{/bold}:     {${memColor}-fg}${stat.memoryUsed}MB / ${stat.memoryTotal}MB (${memPercent}%){/${memColor}-fg}\n`;
-
-        // 磁盘 - 显示所有分区
-        if (stat.disks && stat.disks.length > 0) {
-          content += ` {bold}磁盘{/bold}:\n`;
-          stat.disks.forEach((disk) => {
-            const diskColor =
-              disk.percent > 80 ? 'red' : disk.percent > 50 ? 'yellow' : 'green';
-            const mountLabel = disk.mountPoint.padEnd(6);
-            content += `   ${mountLabel} {${diskColor}-fg}${disk.used}GB / ${disk.total}GB (${disk.percent}%){/${diskColor}-fg}\n`;
-          });
-        } else {
-          // 向后兼容：如果没有 disks 数组，显示旧格式
-          const diskPercent =
-            stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(0) : '0';
-          const diskColor =
-            parseInt(diskPercent) > 80 ? 'red' : parseInt(diskPercent) > 50 ? 'yellow' : 'green';
-          content += ` {bold}磁盘{/bold}:     {${diskColor}-fg}${stat.diskUsed}GB / ${stat.diskTotal}GB (${diskPercent}%){/${diskColor}-fg}\n`;
-        }
-
-        content += '\n';
-      });
-
-      this.blueGreenBox.setContent(content);
-      this.screen.render();
-    }
-  }
-
-  public updateDocker(stats: DockerStats[], loading: boolean): void {
-    if (loading) {
-      this.dockerBox.setContent(' 加载 Docker 资源...');
-      this.screen.render();
-      return;
-    }
-
-    if (stats.length === 0) {
-      this.dockerBox.setContent(' 无 Docker 数据');
-      this.screen.render();
-      return;
-    }
-
-    const formatBytes = (bytes: number): string => {
-      if (bytes === 0) return '0';
-      const k = 1024;
-      const sizes = ['B', 'K', 'M', 'G'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      const value = bytes / Math.pow(k, i);
-      return value.toFixed(1) + sizes[i];
-    };
 
     let content = '';
 
-    // 按环境分组显示
-    stats.forEach((envData) => {
-      const envLabels = { production: 'Production', stage: 'Stage', shared: 'Shared' };
-      const envLabel = envLabels[envData.environment] || envData.environment;
-      content += ` {cyan-fg}${envLabel}{/cyan-fg} (${envData.stats.length} 容器)\n`;
-      content += ' {bold}容器                             CPU    内存       网络{/bold}\n';
+    ec2Stats.forEach((stat) => {
+      const envLabels: Record<string, string> = { production: 'Production', stage: 'Stage', shared: 'Shared' };
+      const envLabel = envLabels[stat.environment] || stat.environment;
+      content += ` {cyan-fg}${envLabel}{/cyan-fg}\n`;
+      content += ` {bold}实例类型{/bold}: ${stat.instanceType}\n`;
+      content += ` {bold}实例 ID{/bold}:  ${stat.instanceId}\n`;
+      content += ` {bold}运行时间{/bold}: ${stat.uptime}\n`;
 
-      envData.stats.forEach((stat) => {
-        const container = stat.container.substring(0, 30).padEnd(30);
-        const cpu = stat.cpuPercent.toFixed(1) + '%';
-        const memPercent =
-          stat.memoryTotal > 0
-            ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) + '%'
-            : '-';
-        const mem = `${formatBytes(stat.memoryUsed)}/${formatBytes(stat.memoryTotal)}`;
-        const net = `${formatBytes(stat.networkRx)}↓ ${formatBytes(stat.networkTx)}↑`;
+      // 内存
+      const memPercent =
+        stat.memoryTotal > 0 ? ((stat.memoryUsed / stat.memoryTotal) * 100).toFixed(0) : '0';
+      const memColor =
+        parseInt(memPercent) > 80 ? 'red' : parseInt(memPercent) > 50 ? 'yellow' : 'green';
+      content += ` {bold}内存{/bold}:     {${memColor}-fg}${stat.memoryUsed}MB / ${stat.memoryTotal}MB (${memPercent}%){/${memColor}-fg}\n`;
 
-        // CPU 颜色
-        const cpuColor =
-          stat.cpuPercent > 80 ? 'red' : stat.cpuPercent > 50 ? 'yellow' : 'green';
-        const cpuDisplay = `{${cpuColor}-fg}${cpu.padEnd(6)}{/${cpuColor}-fg}`;
-
-        // 内存颜色
-        const memPercentNum =
-          stat.memoryTotal > 0 ? (stat.memoryUsed / stat.memoryTotal) * 100 : 0;
-        const memColor = memPercentNum > 80 ? 'red' : memPercentNum > 50 ? 'yellow' : 'green';
-        const memDisplay = `{${memColor}-fg}${mem.padEnd(10)}{/${memColor}-fg}`;
-
-        content += ` ${container} ${cpuDisplay} ${memDisplay} ${net}\n`;
-      });
+      // 磁盘 - 显示所有分区
+      if (stat.disks && stat.disks.length > 0) {
+        content += ` {bold}磁盘{/bold}:\n`;
+        stat.disks.forEach((disk) => {
+          const diskColor =
+            disk.percent > 80 ? 'red' : disk.percent > 50 ? 'yellow' : 'green';
+          const mountLabel = disk.mountPoint.padEnd(6);
+          content += `   ${mountLabel} {${diskColor}-fg}${disk.used}GB / ${disk.total}GB (${disk.percent}%){/${diskColor}-fg}\n`;
+        });
+      } else {
+        // 向后兼容：如果没有 disks 数组，显示旧格式
+        const diskPercent =
+          stat.diskTotal > 0 ? ((stat.diskUsed / stat.diskTotal) * 100).toFixed(0) : '0';
+        const diskColor =
+          parseInt(diskPercent) > 80 ? 'red' : parseInt(diskPercent) > 50 ? 'yellow' : 'green';
+        content += ` {bold}磁盘{/bold}:     {${diskColor}-fg}${stat.diskUsed}GB / ${stat.diskTotal}GB (${diskPercent}%){/${diskColor}-fg}\n`;
+      }
 
       content += '\n';
     });
 
-    this.dockerBox.setContent(content);
+    this.ec2Box.setContent(content);
     this.screen.render();
   }
 
