@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import type { ServiceHealth } from '../../types/monitor.js';
 import { getAllServices } from '../../utils/services-loader.js';
 import axios from 'axios';
+import type { SimplifiedServiceHealth } from '../components/ServicePanel.js';
 
 /**
  * Hook: 监控服务健康状态
@@ -10,7 +10,7 @@ export const useServiceMonitor = (
   environment: string,
   refreshInterval: number,
 ) => {
-  const [services, setServices] = useState<ServiceHealth[]>([]);
+  const [services, setServices] = useState<SimplifiedServiceHealth[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +48,7 @@ export const useServiceMonitor = (
                 health,
                 responseTime,
                 containerStatus: 'running',
-              } as ServiceHealth;
+              } as SimplifiedServiceHealth;
             } catch (err) {
               const error = err as any;
               const isTimeout = error.code === 'ECONNABORTED';
@@ -56,11 +56,11 @@ export const useServiceMonitor = (
               return {
                 name,
                 type,
-                health: 'unhealthy',
+                health: 'unhealthy' as const,
                 responseTime: 0,
                 containerStatus: isTimeout ? 'timeout' : 'unknown',
                 error: error.message,
-              } as ServiceHealth;
+              } as SimplifiedServiceHealth;
             }
           }),
         );

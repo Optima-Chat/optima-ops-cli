@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { DockerStats } from '../../types/monitor.js';
 import { SSHClient } from '../../utils/ssh.js';
-import { getCurrentEnvConfig } from '../../utils/config.js';
+import type { Environment } from '../../utils/config.js';
 
 /**
  * Hook: 获取 Docker 容器资源使用
@@ -17,12 +17,9 @@ export const useDockerStats = (
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const config = getCurrentEnvConfig();
-        const ssh = new SSHClient({
-          host: config.ec2Host,
-          username: 'ec2-user',
-          privateKeyPath: process.env.OPTIMA_SSH_KEY || '~/.ssh/optima-ec2-key',
-        });
+        // 映射环境名称
+        const envKey = (environment === 'production' ? 'production' : 'stage') as Environment;
+        const ssh = new SSHClient(envKey);
 
         await ssh.connect();
 

@@ -52,6 +52,23 @@
         }
       },
       {
+        "name": "user-auth-admin",
+        "repo": "Optima-Chat/user-auth",
+        "type": "core",
+        "hasDatabase": false,
+        "hasRedis": false,
+        "environments": {
+          "ecs-stage": {
+            "service": "optima-stage-user-auth-admin",
+            "healthEndpoint": "https://portal.admin.stage.optima.onl/"
+          },
+          "ecs-prod": {
+            "service": "optima-prod-user-auth-admin",
+            "healthEndpoint": "https://portal.admin.optima.onl/"
+          }
+        }
+      },
+      {
         "name": "mcp-host",
         "repo": "Optima-Chat/mcp-host",
         "type": "core",

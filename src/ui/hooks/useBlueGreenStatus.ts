@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { ECSService } from '../../services/aws/ecs-service.js';
-import { ALBService } from '../../services/aws/alb-service.js';
 import { getCoreServices } from '../../utils/services-loader.js';
 import type { BlueGreenStatus } from '../../types/monitor.js';
 
@@ -17,7 +16,6 @@ export const useBlueGreenStatus = (
 
   useEffect(() => {
     const ecsService = new ECSService();
-    const albService = new ALBService();
 
     // 从 services-config.json 加载核心服务（蓝绿部署仅用于核心服务）
     const coreServices = getCoreServices();
@@ -29,9 +27,9 @@ export const useBlueGreenStatus = (
           environment === 'production' ? 'optima-prod' : 'optima-stage';
 
         // 并发查询所有服务
-        const results = await Promise.all(
+        const results: BlueGreenStatus[] = await Promise.all(
           services.map(async (service) => {
-            const [blue, green] = await Promise.all([
+            const [blueInfo, greenInfo] = await Promise.all([
               ecsService.getServiceTasks(cluster, `optima-${service}-blue`),
               ecsService.getServiceTasks(cluster, `optima-${service}-green`),
             ]);
@@ -42,8 +40,14 @@ export const useBlueGreenStatus = (
 
             return {
               service,
-              blue,
-              green,
+              blue: {
+                running: blueInfo.running,
+                desired: blueInfo.desired,
+              },
+              green: {
+                running: greenInfo.running,
+                desired: greenInfo.desired,
+              },
               traffic,
             };
           }),

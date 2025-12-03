@@ -107,6 +107,49 @@ export interface ECSServiceStats {
 }
 
 /**
+ * Docker 容器资源使用（TUI 简化版）
+ */
+export interface DockerStats {
+  container: string;
+  cpuPercent: number;
+  memoryUsed: number;
+  memoryTotal: number;
+  networkRx: number;
+  networkTx: number;
+}
+
+/**
+ * 蓝绿部署任务信息
+ */
+export interface BlueGreenTaskInfo {
+  taskId: string;
+  status: string;
+  health: 'healthy' | 'unhealthy' | 'unknown';
+}
+
+/**
+ * 蓝绿部署目标组状态
+ */
+export interface BlueGreenTargetInfo {
+  running: number;
+  desired: number;
+  tasks?: BlueGreenTaskInfo[];
+}
+
+/**
+ * 蓝绿部署状态
+ */
+export interface BlueGreenStatus {
+  service: string;
+  blue: BlueGreenTargetInfo;
+  green: BlueGreenTargetInfo;
+  traffic: {
+    blue: number;
+    green: number;
+  };
+}
+
+/**
  * Panel 类型
  */
 export type PanelType = 'overview' | 'services' | 'ec2' | 'ecs';

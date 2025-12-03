@@ -44,6 +44,14 @@ export class ECSService {
       }
 
       const service = response.services[0];
+      if (!service) {
+        return {
+          desired: 0,
+          running: 0,
+          pending: 0,
+          healthy: 0,
+        };
+      }
 
       return {
         desired: service.desiredCount ?? 0,

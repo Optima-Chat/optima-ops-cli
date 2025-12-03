@@ -1,3 +1,13 @@
+/**
+ * observe health - 增强健康检查（支持 optima-core 端点）
+ *
+ * 检查服务的增强健康检查端点，返回：
+ * - 服务状态
+ * - 版本信息 (git_commit, version)
+ * - 依赖检查 (database, redis)
+ * - 响应时间
+ */
+
 import { Command } from 'commander';
 import axios from 'axios';
 import chalk from 'chalk';
@@ -7,9 +17,7 @@ import {
   getServiceForEnvironment,
   getServicesByTypeV2,
   getEnvironmentConfig,
-  TargetEnvironment,
 } from '../../utils/config.js';
-import { SSHClient } from '../../utils/ssh.js';
 import {
   isJsonOutput,
   outputSuccess,
@@ -17,11 +25,37 @@ import {
 } from '../../utils/output.js';
 import { handleError } from '../../utils/error.js';
 
+interface HealthCheckResult {
+  status: string;
+  service: string;
+  version?: string;
+  git_commit?: string;
+  git_branch?: string;
+  environment?: string;
+  uptime_seconds?: number;
+  timestamp?: string;
+  checks?: Record<string, { status: string; latency_ms?: number }>;
+}
+
+interface ServiceHealthResult {
+  service: string;
+  type: string;
+  url: string;
+  status: 'healthy' | 'unhealthy' | 'error' | 'legacy';
+  http_status?: number;
+  response_time: string;
+  version?: string;
+  git_commit?: string;
+  git_branch?: string;
+  checks?: Record<string, { status: string; latency_ms?: number }>;
+  error?: string;
+}
+
 export const healthCommand = new Command('health')
-  .description('检查服务健康状态')
-  .option('--env <env>', '环境 (ec2-prod/ecs-stage/ecs-prod/bi-data)')
+  .description('增强健康检查（支持 optima-core 端点）')
+  .option('--env <env>', '环境 (ec2-prod/ecs-stage/ecs-prod)')
   .option('--service <service>', '特定服务名称')
-  .option('--type <type>', '服务类型 (core/mcp/bi/all)', 'all')
+  .option('--type <type>', '服务类型 (core/mcp/all)', 'core')
   .option('--json', 'JSON 格式输出')
   .action(async (options) => {
     try {
@@ -48,11 +82,12 @@ export const healthCommand = new Command('health')
       }
 
       if (!isJsonOutput()) {
-        printTitle(`🏥 服务健康检查 - ${env} (${envConfig.description})`);
-        console.log(chalk.gray(`域名: ${envConfig.domain}\n`));
+        printTitle(`🔍 增强健康检查 - ${env}`);
+        console.log(chalk.gray(`域名: ${envConfig.domain}`));
+        console.log(chalk.gray(`检查 optima-core 增强端点\n`));
       }
 
-      const results: any[] = [];
+      const results: ServiceHealthResult[] = [];
 
       // 检查每个服务
       for (const serviceConfig of targetServices) {
@@ -60,7 +95,8 @@ export const healthCommand = new Command('health')
         if (!envServiceConfig) continue;
 
         const service = serviceConfig.name;
-        const healthUrl = envServiceConfig.healthEndpoint;
+        const baseUrl = envServiceConfig.healthEndpoint.replace('/health', '');
+        const healthUrl = `${baseUrl}/health`;
 
         if (!isJsonOutput()) {
           process.stdout.write(chalk.white(`检查 ${service.padEnd(20)}... `));
@@ -68,26 +104,60 @@ export const healthCommand = new Command('health')
 
         const startTime = Date.now();
         try {
-          const response = await axios.get(healthUrl, {
+          const response = await axios.get<HealthCheckResult>(healthUrl, {
             timeout: 10000,
             validateStatus: () => true,
           });
 
           const responseTime = Date.now() - startTime;
-          const isHealthy = response.status === 200 || response.status === 204;
+          const isHealthy = response.status === 200;
+          const data = response.data;
 
-          results.push({
+          // 判断是否是增强的健康检查（有 checks 字段）
+          const isEnhanced = data && typeof data === 'object' && 'checks' in data;
+
+          const result: ServiceHealthResult = {
             service,
             type: serviceConfig.type,
             url: healthUrl,
             status: isHealthy ? 'healthy' : 'unhealthy',
             http_status: response.status,
             response_time: `${responseTime}ms`,
-          });
+          };
+
+          if (isEnhanced) {
+            result.version = data.version;
+            result.git_commit = data.git_commit;
+            result.git_branch = data.git_branch;
+            result.checks = data.checks;
+          } else {
+            result.status = isHealthy ? 'legacy' : 'unhealthy';
+          }
+
+          results.push(result);
 
           if (!isJsonOutput()) {
             if (isHealthy) {
-              console.log(chalk.green(`✓ 健康`) + chalk.gray(` (${responseTime}ms)`));
+              if (isEnhanced) {
+                const commit = data.git_commit ? data.git_commit.substring(0, 7) : 'unknown';
+                const checksStatus = data.checks
+                  ? Object.entries(data.checks)
+                      .map(([k, v]) => `${k}:${v.status === 'healthy' ? '✓' : '✗'}`)
+                      .join(' ')
+                  : '';
+                console.log(
+                  chalk.green(`✓ 健康`) +
+                  chalk.gray(` (${responseTime}ms) `) +
+                  chalk.cyan(`v${data.version || '?'} `) +
+                  chalk.yellow(`@${commit} `) +
+                  chalk.gray(checksStatus)
+                );
+              } else {
+                console.log(
+                  chalk.yellow(`✓ 旧版`) +
+                  chalk.gray(` (${responseTime}ms) - 未集成 optima-core`)
+                );
+              }
             } else {
               console.log(chalk.red(`✗ 不健康 (HTTP ${response.status})`));
             }
@@ -113,54 +183,16 @@ export const healthCommand = new Command('health')
         }
       }
 
-      // EC2 环境：检查容器状态
-      if (envConfig.type === 'ec2' && envConfig.host) {
-        if (!isJsonOutput()) {
-          console.log(chalk.white('\n检查容器状态...'));
-        }
-
-        try {
-          // 映射新环境名到旧 SSH 环境名
-          const sshEnvMap: Record<string, string> = {
-            'ec2-prod': 'production',
-            'bi-data': 'bi-data',
-          };
-          const sshEnv = sshEnvMap[env] || env;
-          const ssh = new SSHClient(sshEnv as any);
-          await ssh.connect();
-
-          const containerResult = await ssh.getContainerStatus();
-          const containers = parseContainerStatus(containerResult.stdout);
-
-          results.forEach(result => {
-            const containerName = `optima-${result.service}-prod`;
-            const container = containers.find(c => c.name === containerName);
-            if (container) {
-              result.container_status = container.status;
-            }
-          });
-
-          ssh.disconnect();
-          if (!isJsonOutput()) {
-            console.log(chalk.green('  ✓ 容器状态已获取'));
-          }
-        } catch (error: any) {
-          if (!isJsonOutput()) {
-            console.log(chalk.yellow(`  ⚠ 无法获取容器状态: ${error.message}`));
-          }
-        }
-      }
-
       // 输出结果
       if (isJsonOutput()) {
         outputSuccess({
           environment: env,
-          environmentType: envConfig.type,
           domain: envConfig.domain,
           services: results,
           summary: {
             total: results.length,
             healthy: results.filter(r => r.status === 'healthy').length,
+            legacy: results.filter(r => r.status === 'legacy').length,
             unhealthy: results.filter(r => r.status === 'unhealthy').length,
             error: results.filter(r => r.status === 'error').length,
           },
@@ -168,66 +200,20 @@ export const healthCommand = new Command('health')
       } else {
         // 打印总结
         const healthy = results.filter(r => r.status === 'healthy').length;
+        const legacy = results.filter(r => r.status === 'legacy').length;
         const unhealthy = results.filter(r => r.status === 'unhealthy').length;
         const errors = results.filter(r => r.status === 'error').length;
         const total = results.length;
 
-        console.log('\n' + chalk.gray('─'.repeat(50)));
+        console.log('\n' + chalk.gray('─'.repeat(60)));
         console.log(chalk.white('总结:'));
-
-        if (healthy === total) {
-          console.log(chalk.green(`  ✓ 所有服务健康 (${healthy}/${total})`));
-        } else {
-          console.log(chalk.green(`  ✓ 健康: ${healthy}`));
-          if (unhealthy > 0) console.log(chalk.red(`  ✗ 不健康: ${unhealthy}`));
-          if (errors > 0) console.log(chalk.red(`  ✗ 错误: ${errors}`));
-        }
+        console.log(chalk.green(`  ✓ 健康 (optima-core): ${healthy}`));
+        if (legacy > 0) console.log(chalk.yellow(`  ⚠ 旧版 (未集成): ${legacy}`));
+        if (unhealthy > 0) console.log(chalk.red(`  ✗ 不健康: ${unhealthy}`));
+        if (errors > 0) console.log(chalk.red(`  ✗ 错误: ${errors}`));
         console.log();
       }
     } catch (error) {
       handleError(error);
     }
   });
-
-/**
- * 获取服务 URL
- */
-function getServiceURL(service: string, env: Environment): string {
-  const urlMap: Record<string, Record<Environment, string>> = {
-    'user-auth': {
-      production: 'https://auth.optima.shop',
-      stage: 'https://auth-stage.optima.shop',
-      development: 'https://auth.optima.chat',
-    },
-    'mcp-host': {
-      production: 'https://mcp.optima.shop',
-      stage: 'https://mcp-stage.optima.shop',
-      development: 'https://mcp.optima.chat',
-    },
-    'commerce-backend': {
-      production: 'https://api.optima.shop',
-      stage: 'https://api-stage.optima.shop',
-      development: 'https://api.optima.chat',
-    },
-    'agentic-chat': {
-      production: 'https://ai.optima.shop',
-      stage: 'https://ai-stage.optima.shop',
-      development: 'https://ai.optima.chat',
-    },
-  };
-
-  return urlMap[service]?.[env] || '';
-}
-
-/**
- * 解析容器状态输出
- */
-function parseContainerStatus(output: string): Array<{ id: string; name: string; status: string; ports: string }> {
-  return output
-    .split('\n')
-    .filter(line => line.trim())
-    .map(line => {
-      const [id, name, status, ports] = line.split('\t');
-      return { id: id || '', name: name || '', status: status || '', ports: ports || '' };
-    });
-}

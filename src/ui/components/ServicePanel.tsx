@@ -1,11 +1,22 @@
 import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
-import type { ServiceHealth } from '../../types/monitor.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';
 
+/**
+ * TUI 专用简化服务健康类型
+ */
+export interface SimplifiedServiceHealth {
+  name: string;
+  type: 'core' | 'mcp';
+  health: 'healthy' | 'degraded' | 'unhealthy';
+  responseTime: number;
+  containerStatus: string;
+  error?: string;
+}
+
 export interface ServicePanelProps {
-  services: ServiceHealth[];
+  services: SimplifiedServiceHealth[];
   loading: boolean;
   error?: string | null;
 }
@@ -64,7 +75,7 @@ export const ServicePanel: React.FC<ServicePanelProps> = React.memo(({
   const sortedCore = useMemo(() => sortServices(coreServices), [coreServices]);
   const sortedMcp = useMemo(() => sortServices(mcpServices), [mcpServices]);
 
-  const renderService = (svc: ServiceHealth) => {
+  const renderService = (svc: SimplifiedServiceHealth) => {
     const statusMap = {
       healthy: { icon: '●', label: '健康', color: 'green' },
       degraded: { icon: '▲', label: '降级', color: 'yellow' },
@@ -145,7 +156,7 @@ function truncate(value: string, max: number): string {
   return value.slice(0, max - 1) + '…';
 }
 
-function sortServices(list: ServiceHealth[]): ServiceHealth[] {
+function sortServices(list: SimplifiedServiceHealth[]): SimplifiedServiceHealth[] {
   const priority = { unhealthy: 0, degraded: 1, healthy: 2 } as const;
 
   return [...list].sort((a, b) => {

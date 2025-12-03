@@ -77,6 +77,15 @@ export const ENV_CONFIG = {
     githubRunner: 'optima-dev-host',
     services: ['user-auth', 'mcp-host', 'commerce-backend', 'agentic-chat'],
   },
+  'bi-data': {
+    ec2Host: 'bi-data.optima.onl',
+    ec2Environment: 'bi-data',
+    rdsHost: '',
+    albDnsName: '',
+    dockerNetwork: 'optima-bi',
+    githubRunner: '',
+    services: [],
+  },
 } as const;
 
 // ============== 配置实例 ==============

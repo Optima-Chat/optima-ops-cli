@@ -22,10 +22,10 @@ const COLORS = {
 
 export class BlessedDashboard {
   private screen: blessed.Widgets.Screen;
-  private headerBox: blessed.Widgets.BoxElement;
+  private _headerBox: blessed.Widgets.BoxElement;
   private serviceBox: blessed.Widgets.BoxElement;
   private ec2Box: blessed.Widgets.BoxElement;
-  private keyHintsBox: blessed.Widgets.BoxElement;
+  private _keyHintsBox: blessed.Widgets.BoxElement;
   private environment: string;
   private refreshInterval: number;
   private timeInterval: NodeJS.Timeout | null = null;
@@ -46,10 +46,10 @@ export class BlessedDashboard {
     });
 
     // 创建布局容器
-    this.headerBox = this.createHeader();
+    this._headerBox = this.createHeader();
     this.serviceBox = this.createServiceBox();
     this.ec2Box = this.createEC2Box();
-    this.keyHintsBox = this.createKeyHints();
+    this._keyHintsBox = this.createKeyHints();
 
     // 绑定退出键
     this.screen.key(['escape', 'q', 'C-c'], () => {
@@ -84,7 +84,7 @@ export class BlessedDashboard {
     });
 
     // 左侧标题
-    const titleBox = blessed.text({
+    blessed.text({
       parent: container,
       top: 0,
       left: 1,

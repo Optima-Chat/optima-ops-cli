@@ -18,9 +18,9 @@ import { ecsCommand } from './commands/ecs/index.js';
 import { oauthCommand } from './commands/oauth/index.js';
 import { infisicalCommand } from './commands/infisical/index.js';
 import { biCommand } from './commands/bi/index.js';
+import { observeCommand } from './commands/observe/index.js';
 import {
   getCurrentEnvironment,
-  getCurrentEnvConfig,
   getEnvironments,
   getCurrentTargetEnvironment,
   setCurrentTargetEnvironment,
@@ -51,6 +51,7 @@ program.addCommand(ecsCommand);       // ECS 环境管理 (Phase 8)
 program.addCommand(oauthCommand);     // OAuth 客户端管理 (Phase 9)
 program.addCommand(infisicalCommand); // Infisical 密钥同步 (Phase 10)
 program.addCommand(biCommand);        // BI 数据服务管理 (Phase 11)
+program.addCommand(observeCommand);   // 可观测性命令 (Phase 12)
 
 // 环境管理命令组
 const envCommand = new Command('env')

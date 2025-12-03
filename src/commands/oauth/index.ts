@@ -4,9 +4,18 @@ import chalk from 'chalk';
 import {
   resolveEnvironment,
   getEnvironments,
+  TargetEnvironment,
 } from '../../utils/config.js';
 import { handleError } from '../../utils/error.js';
 import { isJsonOutput, outputSuccess } from '../../utils/output.js';
+import {
+  getAdminCredentials,
+  setAdminCredentials,
+  cacheToken,
+  getCachedToken,
+  getAuthConfigPath,
+  clearTokenCache,
+} from '../../utils/auth-config.js';
 
 // OAuth API 基础配置
 function getAuthBaseUrl(env: string): string {
@@ -28,6 +37,75 @@ function getAuthBaseUrl(env: string): string {
 
   throw new Error(`环境 ${env} 不支持 OAuth 管理`);
 }
+
+// ============== oauth login ==============
+
+const loginCommand = new Command('login')
+  .description('登录获取管理员 token')
+  .option('--env <env>', '环境 (ec2-prod|ecs-stage|ecs-prod)')
+  .option('--json', 'JSON 输出')
+  .action(async (options) => {
+    try {
+      const env = resolveEnvironment(options.env);
+      const baseUrl = getAuthBaseUrl(env);
+
+      // 获取保存的凭证
+      const credentials = getAdminCredentials(env as 'ecs-prod' | 'ecs-stage' | 'ec2-prod');
+
+      if (!isJsonOutput()) {
+        console.log(chalk.bold(`\n登录 ${env}`));
+        console.log(chalk.gray(`URL: ${baseUrl}`));
+        console.log(chalk.gray(`Email: ${credentials.email}`));
+        console.log(chalk.gray('正在登录...'));
+      }
+
+      // 使用 OAuth password grant
+      const response = await axios.post(
+        `${baseUrl}/api/v1/oauth/token`,
+        new URLSearchParams({
+          grant_type: 'password',
+          username: credentials.email,
+          password: credentials.password,
+          client_id: 'admin-panel',
+        }),
+        {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+
+      const { access_token, expires_in, token_type } = response.data;
+
+      // 缓存 token
+      cacheToken(env, access_token, expires_in || 3600);
+
+      if (isJsonOutput()) {
+        outputSuccess({
+          environment: env,
+          success: true,
+          token_type,
+          expires_in,
+        });
+      } else {
+        console.log(chalk.green('\n✓ 登录成功'));
+        console.log(chalk.gray(`Token 类型: ${token_type || 'Bearer'}`));
+        console.log(chalk.gray(`有效期: ${expires_in || 3600} 秒`));
+        console.log(chalk.gray(`Token 已缓存到本地配置\n`));
+      }
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        console.log(chalk.red('\n✗ 登录失败: 邮箱或密码错误'));
+        console.log(chalk.gray('请检查 auth-config 中的凭证配置'));
+      } else if (error.response?.status === 400) {
+        console.log(chalk.red('\n✗ 登录失败: 请求格式错误'));
+        console.log(chalk.gray(`详情: ${JSON.stringify(error.response.data)}`));
+      } else {
+        handleError(error);
+      }
+    }
+  });
 
 // ============== oauth clients list ==============
 
@@ -255,11 +333,75 @@ const healthCommand = new Command('health')
     }
   });
 
+// ============== oauth set-credentials ==============
+
+const setCredentialsCommand = new Command('set-credentials')
+  .description('设置管理员凭证')
+  .requiredOption('--env <env>', '环境 (ec2-prod|ecs-stage|ecs-prod)')
+  .requiredOption('--email <email>', '管理员邮箱')
+  .requiredOption('--password <password>', '管理员密码')
+  .action(async (options) => {
+    try {
+      const env = options.env as 'ecs-prod' | 'ecs-stage' | 'ec2-prod';
+      if (!['ecs-prod', 'ecs-stage', 'ec2-prod'].includes(env)) {
+        console.log(chalk.red(`无效环境: ${env}`));
+        console.log(chalk.gray('支持的环境: ecs-prod, ecs-stage, ec2-prod'));
+        return;
+      }
+
+      setAdminCredentials(env, {
+        email: options.email,
+        password: options.password,
+      });
+
+      // 清除该环境的 token 缓存
+      clearTokenCache(env);
+
+      console.log(chalk.green(`\n✓ 已更新 ${env} 的管理员凭证`));
+      console.log(chalk.gray(`Email: ${options.email}`));
+      console.log(chalk.gray(`配置文件: ${getAuthConfigPath()}`));
+    } catch (error) {
+      handleError(error);
+    }
+  });
+
+// ============== oauth show-config ==============
+
+const showConfigCommand = new Command('show-config')
+  .description('显示当前认证配置')
+  .option('--env <env>', '指定环境')
+  .action(async (options) => {
+    try {
+      const configPath = getAuthConfigPath();
+      console.log(chalk.bold('\n认证配置'));
+      console.log(chalk.gray('─'.repeat(50)));
+      console.log(`配置文件: ${chalk.cyan(configPath)}`);
+      console.log();
+
+      const envs = options.env
+        ? [options.env as 'ecs-prod' | 'ecs-stage' | 'ec2-prod']
+        : (['ecs-prod', 'ecs-stage', 'ec2-prod'] as const);
+
+      for (const env of envs) {
+        const creds = getAdminCredentials(env);
+        console.log(chalk.bold(env));
+        console.log(`  Email: ${creds.email}`);
+        console.log(`  Password: ${creds.password.substring(0, 3)}${'*'.repeat(creds.password.length - 3)}`);
+        console.log();
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  });
+
 // ============== 导出 ==============
 
 export const oauthCommand = new Command('oauth')
   .description('OAuth 客户端管理')
+  .addCommand(loginCommand)
   .addCommand(listCommand)
   .addCommand(getCommand)
   .addCommand(wellKnownCommand)
-  .addCommand(healthCommand);
+  .addCommand(healthCommand)
+  .addCommand(setCredentialsCommand)
+  .addCommand(showConfigCommand);

@@ -28,13 +28,13 @@ interface SSHConnection {
 }
 
 export class MonitorDataService {
-  private environment: string;
+  private _environment: string;
   private sshKeyPath: string;
   private connectionPool: Map<string, SSHConnection>;
   private maxIdleTime: number = 60000; // 60秒后释放空闲连接
 
   constructor(environment: string = 'production') {
-    this.environment = environment;
+    this._environment = environment;
     this.sshKeyPath = process.env.OPTIMA_SSH_KEY || `${process.env.HOME}/.ssh/optima-ec2-key`;
     this.connectionPool = new Map();
 
@@ -458,7 +458,7 @@ export class MonitorDataService {
       // 解析 /proc/stat 输出
       const parse = (line: string) => {
         const parts = line.split(/\s+/).slice(1).map(Number); // 跳过 "cpu" 标签
-        const [user, nice, system, idle, iowait, irq, softirq, steal] = parts;
+        const [user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0] = parts;
 
         const idleTime = idle + iowait;
         const totalTime = user + nice + system + idle + iowait + irq + softirq + steal;

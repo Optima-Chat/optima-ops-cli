@@ -3,7 +3,6 @@ import {
   DescribeTargetGroupsCommand,
   DescribeTargetHealthCommand,
   DescribeRulesCommand,
-  DescribeListenersCommand,
 } from '@aws-sdk/client-elastic-load-balancing-v2';
 
 export interface TrafficSplit {
