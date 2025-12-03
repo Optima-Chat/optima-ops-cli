@@ -143,7 +143,7 @@ export const configCommand = new Command('config')
                 console.log(`  ${keyColor(key.padEnd(35))} ${valueColor(value)}`);
               }
 
-              console.log(chalk.gray('\n─'.repeat(60)));
+              console.log(chalk.gray('\n' + '─'.repeat(60)));
               console.log(chalk.gray(`共 ${configs.length} 项配置`));
             }
 
