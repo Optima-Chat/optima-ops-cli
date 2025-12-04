@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
-import axios from 'axios';
 import { handleError } from '../../utils/error.js';
 import { isJsonOutput, outputSuccess } from '../../utils/output.js';
 import { SSHClient } from '../../utils/ssh.js';

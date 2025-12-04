@@ -128,8 +128,11 @@ export abstract class BasePanel {
    * 销毁 Panel
    */
   destroy(): void {
-    this.stopAutoRefresh();
-    this.container.destroy();
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.container.hide();
   }
 
   /**

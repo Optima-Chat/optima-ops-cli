@@ -462,7 +462,7 @@ export class PanelManager {
     for (const panel of this.panels.values()) {
       panel.destroy();
     }
-    this.headerBox.destroy();
-    this.footerBox.destroy();
+    this.headerBox.hide();
+    this.footerBox.hide();
   }
 }

@@ -7,7 +7,6 @@ import {
   getServiceForEnvironment,
   getServicesByTypeV2,
   getEnvironmentConfig,
-  TargetEnvironment,
 } from '../../utils/config.js';
 import { SSHClient } from '../../utils/ssh.js';
 import {
@@ -188,36 +187,6 @@ export const healthCommand = new Command('health')
       handleError(error);
     }
   });
-
-/**
- * 获取服务 URL
- */
-function getServiceURL(service: string, env: Environment): string {
-  const urlMap: Record<string, Record<Environment, string>> = {
-    'user-auth': {
-      production: 'https://auth.optima.shop',
-      stage: 'https://auth-stage.optima.shop',
-      development: 'https://auth.optima.chat',
-    },
-    'mcp-host': {
-      production: 'https://mcp.optima.shop',
-      stage: 'https://mcp-stage.optima.shop',
-      development: 'https://mcp.optima.chat',
-    },
-    'commerce-backend': {
-      production: 'https://api.optima.shop',
-      stage: 'https://api-stage.optima.shop',
-      development: 'https://api.optima.chat',
-    },
-    'agentic-chat': {
-      production: 'https://ai.optima.shop',
-      stage: 'https://ai-stage.optima.shop',
-      development: 'https://ai.optima.chat',
-    },
-  };
-
-  return urlMap[service]?.[env] || '';
-}
 
 /**
  * 解析容器状态输出

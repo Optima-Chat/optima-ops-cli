@@ -12,7 +12,6 @@ import { dbCommand } from './commands/db/index.js';
 import { infraCommand } from './commands/infra/index.js';
 import { logsCommand } from './commands/logs/index.js';
 import { configCommand } from './commands/config/index.js';
-import { validateCommand } from './commands/validate/index.js';
 import { monitorCommand } from './commands/monitor/index.js';
 import { ecsCommand } from './commands/ecs/index.js';
 import { oauthCommand } from './commands/oauth/index.js';
@@ -45,7 +44,6 @@ program.addCommand(dbCommand);        // 数据库管理 (Phase 2)
 program.addCommand(infraCommand);     // 基础设施监控 (Phase 3)
 program.addCommand(logsCommand);      // 日志分析 (Phase 4)
 program.addCommand(configCommand);    // 配置管理 (Phase 5)
-program.addCommand(validateCommand);  // 部署验证 (Phase 6)
 program.addCommand(monitorCommand);   // 实时监控 TUI (Phase 7)
 program.addCommand(ecsCommand);       // ECS 环境管理 (Phase 8)
 program.addCommand(oauthCommand);     // OAuth 客户端管理 (Phase 9)

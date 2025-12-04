@@ -56,7 +56,7 @@ export const statusCommand = new Command('status')
         for (let i = 0; i < containerNames.length; i++) {
           const containerName = containerNames[i];
           const serviceConfig = targetServices[i];
-          const service = serviceConfig.name;
+          const service = serviceConfig?.name || containerName;
 
           if (!isJsonOutput()) {
             process.stdout.write(chalk.white(`检查 ${service}... `));

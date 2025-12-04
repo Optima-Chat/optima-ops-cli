@@ -12,10 +12,7 @@ import axios from 'axios';
 import chalk from 'chalk';
 import {
   resolveEnvironment,
-  getServicesInEnvironment,
   getServiceForEnvironment,
-  getServicesByTypeV2,
-  getEnvironmentConfig,
 } from '../../utils/config.js';
 import {
   isJsonOutput,
@@ -33,17 +30,6 @@ interface DebugConfig {
   config_source?: string;
 }
 
-interface ServiceConfigResult {
-  service: string;
-  type: string;
-  url: string;
-  status: 'ok' | 'unauthorized' | 'not_available' | 'error';
-  response_time: string;
-  config?: Record<string, string>;
-  infisical_enabled?: boolean;
-  config_source?: string;
-  error?: string;
-}
 
 export const configCommand = new Command('config')
   .description('获取服务配置信息 (/debug/config)')
@@ -55,7 +41,6 @@ export const configCommand = new Command('config')
   .action(async (options) => {
     try {
       const env = resolveEnvironment(options.env);
-      const envConfig = getEnvironmentConfig(env);
 
       // 必须指定服务
       if (!options.service) {
@@ -69,6 +54,9 @@ export const configCommand = new Command('config')
 
       const serviceConfig = result.service;
       const envServiceConfig = serviceConfig.environments[env];
+      if (!envServiceConfig) {
+        throw new Error(`服务 ${options.service} 在环境 ${env} 中没有配置`);
+      }
       const service = serviceConfig.name;
       const baseUrl = envServiceConfig.healthEndpoint.replace('/health', '');
       const configUrl = `${baseUrl}/debug/config`;

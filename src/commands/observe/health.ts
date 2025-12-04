@@ -203,7 +203,6 @@ export const healthCommand = new Command('health')
         const legacy = results.filter(r => r.status === 'legacy').length;
         const unhealthy = results.filter(r => r.status === 'unhealthy').length;
         const errors = results.filter(r => r.status === 'error').length;
-        const total = results.length;
 
         console.log('\n' + chalk.gray('─'.repeat(60)));
         console.log(chalk.white('总结:'));

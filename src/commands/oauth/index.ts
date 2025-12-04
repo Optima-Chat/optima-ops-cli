@@ -4,7 +4,6 @@ import chalk from 'chalk';
 import {
   resolveEnvironment,
   getEnvironments,
-  TargetEnvironment,
 } from '../../utils/config.js';
 import { handleError } from '../../utils/error.js';
 import { isJsonOutput, outputSuccess } from '../../utils/output.js';
@@ -12,7 +11,6 @@ import {
   getAdminCredentials,
   setAdminCredentials,
   cacheToken,
-  getCachedToken,
   getAuthConfigPath,
   clearTokenCache,
 } from '../../utils/auth-config.js';

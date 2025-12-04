@@ -12,10 +12,10 @@ import fs from 'fs';
  * - 右侧（40%）：实时错误日志滚动
  */
 export class OverviewPanel extends BasePanel {
-  private dataService: MonitorDataService;
+  private _dataService: MonitorDataService;
   private leftBox: any;  // 左侧概览框
   private rightBox: any; // 右侧日志框
-  private errorLogs: string[] = []; // 错误日志缓存
+  private _errorLogs: string[] = []; // 错误日志缓存
 
   constructor(
     screen: any,
@@ -24,7 +24,7 @@ export class OverviewPanel extends BasePanel {
     environment: string
   ) {
     super(screen, config, cache, environment);
-    this.dataService = new MonitorDataService(environment);
+    this._dataService = new MonitorDataService(environment);
 
     // 隐藏 BasePanel 的默认 container
     this.container.hide();

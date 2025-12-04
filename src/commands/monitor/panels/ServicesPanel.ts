@@ -1,6 +1,5 @@
 import { BasePanel } from './BasePanel.js';
 import { MonitorDataService } from '../../../services/monitor/MonitorDataService.js';
-import type { ServiceHealth } from '../../../types/monitor.js';
 
 /**
  * Services Health Panel (Panel 1)
@@ -13,7 +12,7 @@ import type { ServiceHealth } from '../../../types/monitor.js';
  * - 容器状态
  */
 export class ServicesPanel extends BasePanel {
-  private dataService: MonitorDataService;
+  private _dataService: MonitorDataService;
 
   constructor(
     screen: any,
@@ -22,7 +21,7 @@ export class ServicesPanel extends BasePanel {
     environment: string
   ) {
     super(screen, config, cache, environment);
-    this.dataService = new MonitorDataService(environment);
+    this._dataService = new MonitorDataService(environment);
   }
 
   /**
